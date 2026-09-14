@@ -502,39 +502,56 @@ function continueToPassengers(flightId, passengers) {
 })();
 
 // ── Payment ───────────────────────────────────────────
-const WALLETS = {
-  BTC: { address: '', rate: 0.000015 },
-  ETH: { address: '', rate: 0.00035  },
-  SOL: { address: '', rate: 0.065    },
+const RATES = {
+  BTC: 0.000015,
+  ETH: 0.00035,
+  SOL: 0.065,
 };
 
 let selectedCrypto = null;
+
+function copyAddress(elemId, btn) {
+  const text = document.getElementById(elemId)?.textContent?.trim();
+  if (!text || text === 'Not configured') return;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.classList.add('copied');
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+    }, 2000);
+  });
+}
 
 function selectCrypto(type) {
   ['BTC', 'ETH', 'SOL'].forEach(c => {
     const el = document.getElementById(`opt-${c.toLowerCase()}`);
     if (el) el.className = 'crypto-option';
+    const row = document.getElementById(`wallet-${c.toLowerCase()}`);
+    if (row) row.style.outline = 'none';
   });
 
   selectedCrypto = type;
   const el = document.getElementById(`opt-${type.toLowerCase()}`);
   if (el) el.className = `crypto-option selected-${type.toLowerCase()}`;
 
+  // Highlight the selected wallet row
+  const row = document.getElementById(`wallet-${type.toLowerCase()}`);
+  if (row) row.style.outline = `2px solid var(--${type.toLowerCase() === 'btc' ? 'btc' : type.toLowerCase() === 'eth' ? 'eth' : 'sol'})`;
+
   const totalEl  = document.querySelector('.summary-row.total .summary-val');
   const totalUsd = totalEl ? parseFloat(totalEl.textContent.replace('$', '')) : 0;
-  const amount   = (totalUsd * WALLETS[type].rate).toFixed(6);
+  const amount   = (totalUsd * RATES[type]).toFixed(6);
 
-  const addrEl  = document.getElementById('wallet-address');
-  const amtEl   = document.getElementById('wallet-amount');
-  const infoEl  = document.getElementById('wallet-info');
-  const txGroup = document.getElementById('tx-group');
-  const btnConf = document.getElementById('btn-confirm');
+  const amtEl      = document.getElementById('wallet-amount');
+  const amtDisplay = document.getElementById('wallet-amount-display');
+  const txGroup    = document.getElementById('tx-group');
+  const btnConf    = document.getElementById('btn-confirm');
 
-  if (addrEl)  addrEl.textContent            = WALLETS[type].address || 'Set your wallet address in .env';
-  if (amtEl)   amtEl.textContent             = `${amount} ${type}`;
-  if (infoEl)  infoEl.classList.add('show');
-  if (txGroup) txGroup.style.display         = 'block';
-  if (btnConf) btnConf.style.display         = 'block';
+  if (amtEl)      amtEl.textContent        = `${amount} ${type}`;
+  if (amtDisplay) amtDisplay.style.display = 'flex';
+  if (txGroup)    txGroup.style.display    = 'block';
+  if (btnConf)    btnConf.style.display    = 'block';
 }
 
 async function confirmPayment(bookingId) {
