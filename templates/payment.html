@@ -31,8 +31,56 @@
       </div>
     </div>
 
+    <!-- All wallet addresses shown upfront -->
+    <div class="all-wallets">
+      <p class="all-wallets-label">Send payment to one of these addresses</p>
+
+      <div class="wallet-row" id="wallet-btc">
+        <div class="wallet-row-header">
+          <span class="wallet-crypto-icon btc-icon">₿</span>
+          <span class="wallet-crypto-name">Bitcoin <span class="wallet-ticker">BTC</span></span>
+        </div>
+        <div class="wallet-addr-box">
+          <span class="wallet-addr-text" id="addr-btc">{{ config.BTC_WALLET or 'Not configured' }}</span>
+          <button class="copy-btn" onclick="copyAddress('addr-btc', this)" title="Copy BTC address">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class="wallet-row" id="wallet-eth">
+        <div class="wallet-row-header">
+          <span class="wallet-crypto-icon eth-icon">Ξ</span>
+          <span class="wallet-crypto-name">Ethereum <span class="wallet-ticker">ETH</span></span>
+        </div>
+        <div class="wallet-addr-box">
+          <span class="wallet-addr-text" id="addr-eth">{{ config.ETH_WALLET or 'Not configured' }}</span>
+          <button class="copy-btn" onclick="copyAddress('addr-eth', this)" title="Copy ETH address">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class="wallet-row" id="wallet-sol">
+        <div class="wallet-row-header">
+          <span class="wallet-crypto-icon sol-icon">◎</span>
+          <span class="wallet-crypto-name">Solana <span class="wallet-ticker">SOL</span></span>
+        </div>
+        <div class="wallet-addr-box">
+          <span class="wallet-addr-text" id="addr-sol">{{ config.SOL_WALLET or 'Not configured' }}</span>
+          <button class="copy-btn" onclick="copyAddress('addr-sol', this)" title="Copy SOL address">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: select which crypto they used -->
     <div class="crypto-select">
-      <p>Pay with</p>
+      <p>Which currency are you paying with?</p>
       <div class="crypto-options">
         <div class="crypto-option" id="opt-btc" onclick="selectCrypto('BTC')">
           <div class="crypto-icon">₿</div>
@@ -52,10 +100,9 @@
       </div>
     </div>
 
-    <div class="wallet-info" id="wallet-info">
-      <div class="wallet-label">Send exactly to this address</div>
-      <div class="wallet-address" id="wallet-address"></div>
-      <div class="wallet-amount" id="wallet-amount"></div>
+    <div class="wallet-amount-display" id="wallet-amount-display" style="display:none">
+      <span class="amount-label">Exact amount to send:</span>
+      <span class="amount-value" id="wallet-amount"></span>
     </div>
 
     <div class="tx-input-group" id="tx-group" style="display:none">
@@ -70,5 +117,141 @@
     </button>
   </div>
 </section>
+
+<style>
+.all-wallets {
+  margin: 1.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.all-wallets-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  margin-bottom: 0.25rem;
+}
+
+.wallet-row {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  transition: border-color 0.2s;
+}
+
+.wallet-row:hover {
+  border-color: rgba(255,255,255,0.15);
+}
+
+.wallet-row-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.wallet-crypto-icon {
+  font-size: 1.1rem;
+  font-weight: 700;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.btc-icon { color: var(--btc); background: rgba(247,147,26,0.12); }
+.eth-icon { color: var(--eth); background: rgba(98,126,234,0.12); }
+.sol-icon { color: var(--sol); background: rgba(153,69,255,0.12); }
+
+.wallet-crypto-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.wallet-ticker {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-3);
+  margin-left: 0.25rem;
+}
+
+.wallet-addr-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+}
+
+.wallet-addr-text {
+  font-family: 'Space Mono', 'Courier New', monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.02em;
+  word-break: break-all;
+  flex: 1;
+  line-height: 1.5;
+}
+
+.copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(37,99,235,0.15);
+  border: 1px solid rgba(37,99,235,0.3);
+  color: var(--blue-l);
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.copy-btn:hover {
+  background: rgba(37,99,235,0.3);
+  border-color: var(--blue-l);
+}
+
+.copy-btn.copied {
+  background: rgba(34,197,94,0.15);
+  border-color: rgba(34,197,94,0.4);
+  color: #4ade80;
+}
+
+.wallet-amount-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(37,99,235,0.08);
+  border: 1px solid rgba(37,99,235,0.2);
+  border-radius: 10px;
+  padding: 0.85rem 1.1rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.amount-label {
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+
+.amount-value {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--blue-l);
+}
+</style>
 
 {% endblock %}
