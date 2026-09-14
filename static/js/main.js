@@ -577,8 +577,8 @@ async function confirmPayment(bookingId) {
   const data = await res.json();
 
   if (!res.ok) { showAuthError(err, data.error || 'Payment failed.'); return; }
-  // Use URL from server (booking is now confirmed) or fall back
-  window.location.href = data.confirmation_url || `/confirmation/${bookingId}`;
+  // Redirect to the pending page — admin must confirm before confirmation is shown
+  window.location.href = data.pending_url || `/booking/${bookingId}/pending`;
 }
 // ── Dashboard ──────────────────────────────────────────
 async function cancelBooking(bookingId) {
