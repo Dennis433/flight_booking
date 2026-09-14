@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}Booking Confirmed — SkyChain{% endblock %}
+{% block content %}
+
+<svg class="stars" xmlns="http://www.w3.org/2000/svg" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></svg>
+
+<section class="confirmation-page">
+  <div class="confirmation-card">
+
+    <div class="confirm-icon">✓</div>
+    <h2>Booking confirmed</h2>
+    <p class="confirm-sub">Your e-ticket is ready. Safe travels.</p>
+
+    <!-- E-ticket -->
+    <div class="eticket">
+      <div class="eticket-header">
+        <div class="eticket-brand">SKYCHAIN</div>
+        <div class="eticket-ref">{{ booking.id[:8].upper() }}</div>
+      </div>
+
+      <div class="eticket-route">
+        <div class="eticket-port">
+          <div class="eticket-iata">{{ booking.flight.origin.iata_code }}</div>
+          <div class="eticket-city">{{ booking.flight.origin.city }}</div>
+          <div class="eticket-time">{{ booking.flight.departure_time.strftime('%H:%M') }}</div>
+        </div>
+        <div class="eticket-mid">
+          <div class="eticket-line">
+            <div class="eticket-plane">✈</div>
+          </div>
+          <div class="eticket-flight-num">{{ booking.flight.flight_number }}</div>
+        </div>
+        <div class="eticket-port eticket-port-right">
+          <div class="eticket-iata">{{ booking.flight.destination.iata_code }}</div>
+          <div class="eticket-city">{{ booking.flight.destination.city }}</div>
+          <div class="eticket-time">{{ booking.flight.arrival_time.strftime('%H:%M') }}</div>
+        </div>
+      </div>
+
+      <div class="eticket-divider">
+        <div class="eticket-notch eticket-notch-left"></div>
+        <div class="eticket-dash"></div>
+        <div class="eticket-notch eticket-notch-right"></div>
+      </div>
+
+      <!-- Core flight details -->
+      <div class="eticket-details">
+        <div class="eticket-detail">
+          <div class="eticket-detail-label">Date</div>
+          <div class="eticket-detail-val">{{ booking.flight.departure_time.strftime('%d %b %Y') }}</div>
+        </div>
+        <div class="eticket-detail">
+          <div class="eticket-detail-label">Departure</div>
+          <div class="eticket-detail-val">{{ booking.flight.departure_time.strftime('%H:%M') }}</div>
+        </div>
+        <div class="eticket-detail">
+          <div class="eticket-detail-label">Arrival</div>
+          <div class="eticket-detail-val">{{ booking.flight.arrival_time.strftime('%H:%M') }}</div>
+        </div>
+        <div class="eticket-detail">
+          <div class="eticket-detail-label">Passengers</div>
+          <div class="eticket-detail-val">{{ booking.passengers }}</div>
+        </div>
+        <div class="eticket-detail">
+          <div class="eticket-detail-label">Cabin</div>
+          <div class="eticket-detail-val">{{ booking.flight.cabin_class|capitalize }}</div>
+        </div>
+        <div class="eticket-detail">
+          <div class="eticket-detail-label">Status</div>
+          <div class="eticket-detail-val eticket-confirmed">✓ Confirmed</div>
+        </div>
+      </div>
+
+      <!-- Payment receipt section -->
+      {% if booking.payment %}
+      <div class="eticket-receipt">
+        <div class="eticket-receipt-title">Payment receipt</div>
+        <div class="eticket-details">
+          <div class="eticket-detail">
+            <div class="eticket-detail-label">Total (USD)</div>
+            <div class="eticket-detail-val">${{ "%.2f"|format(booking.total_usd) }}</div>
+          </div>
+          <div class="eticket-detail">
+            <div class="eticket-detail-label">Paid with</div>
+            <div class="eticket-detail-val">{{ booking.payment.crypto_type }}</div>
+          </div>
+          <div class="eticket-detail">
+            <div class="eticket-detail-label">Crypto amount</div>
+            <div class="eticket-detail-val">{{ "%.6f"|format(booking.payment.amount_crypto) }} {{ booking.payment.crypto_type }}</div>
+          </div>
+          <div class="eticket-detail">
+            <div class="eticket-detail-label">Payment status</div>
+            <div class="eticket-detail-val eticket-confirmed">✓ Confirmed</div>
+          </div>
+          {% if booking.payment.confirmed_at %}
+          <div class="eticket-detail">
+            <div class="eticket-detail-label">Confirmed at</div>
+            <div class="eticket-detail-val">{{ booking.payment.confirmed_at.strftime('%d %b %Y, %H:%M') }} UTC</div>
+          </div>
+          {% endif %}
+        </div>
+        {% if booking.payment.tx_hash %}
+        <div class="eticket-tx">
+          <span class="eticket-tx-label">Tx hash</span>
+          <span class="eticket-tx-hash">{{ booking.payment.tx_hash }}</span>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Check-in notice -->
+      <div class="eticket-checkin-notice">
+        <span class="checkin-icon">🕐</span>
+        Online check-in opens 48 hours before departure
+        {% if booking.checkin_opens_at %}
+          — {{ booking.checkin_opens_at.strftime('%d %b %Y at %H:%M') }} UTC
+        {% endif %}
+      </div>
+
+    </div><!-- /.eticket -->
+
+    <!-- Download / print -->
+    <div class="confirm-actions">
+      <button class="btn-gate-secondary" onclick="window.print()">Print / Save PDF</button>
+      <a href="/dashboard" class="btn-gate-primary">My bookings</a>
+      <a href="/" class="btn-gate-secondary">Book another</a>
+    </div>
+
+  </div>
+</section>
+
+<style>
+/* Receipt block inside the ticket */
+.eticket-receipt {
+  border-top: 1px dashed rgba(255,255,255,0.12);
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+}
+.eticket-receipt-title {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  margin-bottom: 0.85rem;
+}
+.eticket-tx {
+  margin-top: 0.85rem;
+  padding: 0.6rem 0.85rem;
+  background: rgba(255,255,255,0.04);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.eticket-tx-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+.eticket-tx-hash {
+  font-family: 'Courier New', monospace;
+  font-size: 0.72rem;
+  color: var(--text-2);
+  word-break: break-all;
+}
+.eticket-checkin-notice {
+  margin-top: 1.25rem;
+  padding: 0.75rem 1rem;
+  background: rgba(37,99,235,0.08);
+  border: 1px solid rgba(37,99,235,0.2);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  color: var(--text-2);
+  text-align: center;
+}
+.checkin-icon { margin-right: 0.4rem; }
+
+/* Print styles — clean black-on-white ticket */
+@media print {
+  body { background: white !important; color: black !important; }
+  .stars, .confirm-actions, nav, header { display: none !important; }
+  .eticket {
+    border: 2px solid #000 !important;
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+  .eticket-detail-label { color: #555 !important; }
+  .eticket-detail-val   { color: #000 !important; }
+  .eticket-tx-hash      { color: #333 !important; }
+  .eticket-confirmed    { color: #16a34a !important; }
+  .eticket-checkin-notice {
+    border: 1px solid #999 !important;
+    background: #f5f5f5 !important;
+    color: #333 !important;
+  }
+}
+</style>
+
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Log in — SkyChain{% endblock %}
+{% block content %}
+
+<svg class="stars" xmlns="http://www.w3.org/2000/svg" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></svg>
+
+<section class="auth-page">
+  <div class="auth-card">
+    <h2>Welcome back</h2>
+    <p class="auth-sub">Log in to search and book flights</p>
+
+    <div class="auth-error" id="auth-error"></div>
+
+    <div class="input-group">
+      <label>Email</label>
+      <input type="email" id="email" placeholder="you@example.com" />
+    </div>
+
+    <div class="input-group">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="••••••••" />
+    </div>
+
+    <button class="btn-auth" onclick="login()">Log in</button>
+
+    <div class="auth-switch">
+      No account? <a href="/register">Create one</a>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

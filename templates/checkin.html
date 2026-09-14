@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}Web Check-in — SkyChain{% endblock %}
+{% block content %}
+
+<svg class="stars" xmlns="http://www.w3.org/2000/svg" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></svg>
+
+<section class="checkin-page">
+  <div class="checkin-card">
+
+    <!-- Header -->
+    <a href="/dashboard" class="back-link">← My bookings</a>
+    <h2>Web check-in</h2>
+    <p class="confirm-sub">{{ booking.flight.origin.city }} → {{ booking.flight.destination.city }} · {{ booking.flight.departure_time.strftime('%d %b %Y, %H:%M') }}</p>
+
+    <!-- Flight strip (same eticket chrome as confirmation.html) -->
+    <div class="eticket" style="margin-bottom:1.75rem">
+      <div class="eticket-header">
+        <div class="eticket-brand">SKYCHAIN</div>
+        <div class="eticket-ref">{{ booking.id[:8].upper() }}</div>
+      </div>
+
+      <div class="eticket-route">
+        <div class="eticket-port">
+          <div class="eticket-iata">{{ booking.flight.origin.iata_code }}</div>
+          <div class="eticket-city">{{ booking.flight.origin.city }}</div>
+          <div class="eticket-time">{{ booking.flight.departure_time.strftime('%H:%M') }}</div>
+        </div>
+        <div class="eticket-mid">
+          <div class="eticket-line">
+            <div class="eticket-plane">✈</div>
+          </div>
+          <div class="eticket-flight-num">{{ booking.flight.flight_number }}</div>
+        </div>
+        <div class="eticket-port eticket-port-right">
+          <div class="eticket-iata">{{ booking.flight.destination.iata_code }}</div>
+          <div class="eticket-city">{{ booking.flight.destination.city }}</div>
+          <div class="eticket-time">{{ booking.flight.arrival_time.strftime('%H:%M') }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Seat selector -->
+    <div class="checkin-section">
+      <div class="checkin-section-label">Select your seat</div>
+      <p class="checkin-hint">Choose one seat per passenger. Selected seats are highlighted in blue.</p>
+
+      <div class="seatmap-wrap">
+        <!-- Column labels -->
+        <div class="seatmap-cols">
+          <span></span>
+          <span>A</span><span>B</span><span>C</span>
+          <span class="seatmap-aisle"></span>
+          <span>D</span><span>E</span><span>F</span>
+        </div>
+
+        <div class="seatmap" id="seatmap">
+          {% for row in range(1, 31) %}
+          <div class="seatmap-row">
+            <span class="seatmap-rownum">{{ row }}</span>
+            {% for col in ['A','B','C'] %}
+              {% set seat_id = row|string + col %}
+              <button
+                class="seat {% if seat_id in taken_seats %}seat-taken{% endif %}"
+                data-seat="{{ seat_id }}"
+                {% if seat_id in taken_seats %}disabled{% endif %}
+              >{{ col }}</button>
+            {% endfor %}
+            <span class="seatmap-aisle"></span>
+            {% for col in ['D','E','F'] %}
+              {% set seat_id = row|string + col %}
+              <button
+                class="seat {% if seat_id in taken_seats %}seat-taken{% endif %}"
+                data-seat="{{ seat_id }}"
+                {% if seat_id in taken_seats %}disabled{% endif %}
+              >{{ col }}</button>
+            {% endfor %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="seatmap-legend">
+        <span class="legend-item"><span class="legend-dot legend-free"></span>Available</span>
+        <span class="legend-item"><span class="legend-dot legend-taken"></span>Taken</span>
+        <span class="legend-item"><span class="legend-dot legend-selected"></span>Your selection</span>
+      </div>
+
+      <!-- Selection summary -->
+      <div class="seat-summary" id="seat-summary">
+        <span class="seat-summary-label">Selected:</span>
+        <span class="seat-summary-val" id="seat-summary-val">None</span>
+      </div>
+    </div>
+
+    <!-- Passenger confirmation -->
+    <div class="checkin-section">
+      <div class="checkin-section-label">Passenger details</div>
+      <div class="checkin-pax-list">
+        <div class="checkin-pax-row">
+          <div class="checkin-pax-name">{{ booking.user.full_name }}</div>
+          <div class="checkin-pax-meta">{{ booking.flight.cabin_class|capitalize }} · {{ booking.passengers }} pax</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div class="checkin-error" id="checkin-error"></div>
+
+    <!-- CTA -->
+    <button class="btn-checkin" id="btn-checkin" onclick="submitCheckin()">
+      Confirm check-in
+    </button>
+    <p class="checkin-fine">
+      By checking in you confirm all passenger details are correct.
+      Check-in closes at departure time.
+    </p>
+
+  </div>
+</section>
+
+<script>
+const BOOKING_ID  = "{{ booking.id }}";
+const MAX_SEATS   = {{ booking.passengers }};
+let selected      = [];
+
+// ── Seat selection ────────────────────────────────────────
+document.querySelectorAll('.seat:not(.seat-taken)').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const seat = btn.dataset.seat;
+    if (btn.classList.contains('seat-selected')) {
+      btn.classList.remove('seat-selected');
+      selected = selected.filter(s => s !== seat);
+    } else {
+      if (selected.length >= MAX_SEATS) {
+        // Deselect oldest if already at cap
+        const oldest = selected.shift();
+        document.querySelector(`.seat[data-seat="${oldest}"]`)
+                .classList.remove('seat-selected');
+      }
+      btn.classList.add('seat-selected');
+      selected.push(seat);
+    }
+    document.getElementById('seat-summary-val').textContent =
+      selected.length ? selected.join(', ') : 'None';
+  });
+});
+
+// ── Submit ────────────────────────────────────────────────
+async function submitCheckin() {
+  const errEl = document.getElementById('checkin-error');
+  errEl.textContent = '';
+  errEl.classList.remove('show');
+
+  if (selected.length < MAX_SEATS) {
+    errEl.textContent = `Please select ${MAX_SEATS} seat${MAX_SEATS > 1 ? 's' : ''} to continue.`;
+    errEl.classList.add('show');
+    return;
+  }
+
+  const btn = document.getElementById('btn-checkin');
+  btn.disabled   = true;
+  btn.textContent = 'Checking in…';
+
+  try {
+    const res  = await fetch(`/checkin/${BOOKING_ID}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ seats: selected })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Check-in failed');
+    window.location.href = `/boarding-pass/${BOOKING_ID}`;
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.add('show');
+    btn.disabled    = false;
+    btn.textContent = 'Confirm check-in';
+  }
+}
+</script>
+{% endblock %}

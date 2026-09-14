@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+{% block title %}My Bookings — SkyChain{% endblock %}
+{% block content %}
+
+<svg class="stars" xmlns="http://www.w3.org/2000/svg" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></svg>
+
+<section class="dashboard-page">
+  <div class="dashboard-inner">
+
+    <div class="dashboard-header">
+      <div>
+        <h1 class="dashboard-title">My bookings</h1>
+        <p class="dashboard-sub">{{ user.full_name }} · {{ user.email }}</p>
+      </div>
+      <a href="/" class="btn-new-search">New search</a>
+    </div>
+
+    {% if not bookings %}
+    <div class="state-empty" style="padding:5rem 2rem">
+      <p style="font-size:2rem;margin-bottom:0.75rem">✈️</p>
+      <p>No bookings yet. <a href="/" style="color:var(--blue-l)">Search for flights</a></p>
+    </div>
+
+    {% else %}
+
+    <!-- Summary stats -->
+    <div class="dash-stats">
+      <div class="stat-card">
+        <div class="stat-val">{{ bookings|length }}</div>
+        <div class="stat-label">Total bookings</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val">{{ bookings|selectattr('status','equalto','confirmed')|list|length }}</div>
+        <div class="stat-label">Confirmed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val">${{ "%.0f"|format(bookings|sum(attribute='total_usd')) }}</div>
+        <div class="stat-label">Total spent</div>
+      </div>
+    </div>
+
+    <!-- Booking list -->
+    <div class="booking-list">
+      {% for b in bookings %}
+      <div class="booking-card {% if b.status == 'cancelled' %}booking-cancelled{% endif %}" id="booking-{{ b.id }}">
+
+        <div class="booking-route">
+          <div class="bk-airport">
+            <div class="bk-iata">{{ b.flight.origin.iata_code }}</div>
+            <div class="bk-city">{{ b.flight.origin.city }}</div>
+          </div>
+          <div class="bk-mid">
+            <div class="bk-line"></div>
+            <div class="bk-flight-num">{{ b.flight.flight_number }}</div>
+          </div>
+          <div class="bk-airport">
+            <div class="bk-iata">{{ b.flight.destination.iata_code }}</div>
+            <div class="bk-city">{{ b.flight.destination.city }}</div>
+          </div>
+        </div>
+
+        <div class="booking-meta">
+          <div class="bk-meta-item">
+            <div class="bk-meta-label">Date</div>
+            <div class="bk-meta-val">{{ b.flight.departure_time.strftime('%d %b %Y') }}</div>
+          </div>
+          <div class="bk-meta-item">
+            <div class="bk-meta-label">Departure</div>
+            <div class="bk-meta-val">{{ b.flight.departure_time.strftime('%H:%M') }}</div>
+          </div>
+          <div class="bk-meta-item">
+            <div class="bk-meta-label">Passengers</div>
+            <div class="bk-meta-val">{{ b.passengers }}</div>
+          </div>
+          <div class="bk-meta-item">
+            <div class="bk-meta-label">Cabin</div>
+            <div class="bk-meta-val">{{ b.flight.cabin_class|capitalize }}</div>
+          </div>
+          <div class="bk-meta-item">
+            <div class="bk-meta-label">Total paid</div>
+            <div class="bk-meta-val">${{ "%.2f"|format(b.total_usd) }}</div>
+          </div>
+          {% if b.payment %}
+          <div class="bk-meta-item">
+            <div class="bk-meta-label">Paid with</div>
+            <div class="bk-meta-val">{{ b.payment.crypto_type }}</div>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- ─── Expandable detail panel ─────────────────────────────── -->
+        <div class="bk-detail-panel" id="detail-{{ b.id }}" aria-hidden="true">
+          <div class="bk-detail-inner">
+
+            <!-- Timeline -->
+            <div class="bk-timeline">
+              <div class="bk-tl-point">
+                <div class="bk-tl-time">{{ b.flight.departure_time.strftime('%H:%M') }}</div>
+                <div class="bk-tl-dot bk-tl-dot--origin"></div>
+                <div class="bk-tl-info">
+                  <div class="bk-tl-iata">{{ b.flight.origin.iata_code }}</div>
+                  <div class="bk-tl-place">{{ b.flight.origin.name }}</div>
+                  <div class="bk-tl-place" style="color:var(--text-3)">{{ b.flight.origin.city }}, {{ b.flight.origin.country }}</div>
+                </div>
+              </div>
+              <div class="bk-tl-bar">
+                {%- set dep = b.flight.departure_time -%}
+                {%- set arr = b.flight.arrival_time -%}
+                {%- set mins = ((arr - dep).seconds // 60) -%}
+                {%- set h = mins // 60 -%}
+                {%- set m = mins % 60 -%}
+                <div class="bk-tl-duration">{{ h }}h {{ m }}m</div>
+                <div class="bk-tl-line"></div>
+                <div class="bk-tl-class">{{ b.flight.cabin_class|capitalize }}</div>
+              </div>
+              <div class="bk-tl-point">
+                <div class="bk-tl-time">{{ b.flight.arrival_time.strftime('%H:%M') }}</div>
+                <div class="bk-tl-dot bk-tl-dot--dest"></div>
+                <div class="bk-tl-info">
+                  <div class="bk-tl-iata">{{ b.flight.destination.iata_code }}</div>
+                  <div class="bk-tl-place">{{ b.flight.destination.name }}</div>
+                  <div class="bk-tl-place" style="color:var(--text-3)">{{ b.flight.destination.city }}, {{ b.flight.destination.country }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Detail grid -->
+            <div class="bk-detail-grid">
+              <div class="bk-detail-item">
+                <div class="bk-detail-label">Booking ref</div>
+                <div class="bk-detail-val bk-ref-mono">{{ b.id[:8].upper() }}</div>
+              </div>
+              <div class="bk-detail-item">
+                <div class="bk-detail-label">Flight</div>
+                <div class="bk-detail-val">{{ b.flight.flight_number }}</div>
+              </div>
+              <div class="bk-detail-item">
+                <div class="bk-detail-label">Departure date</div>
+                <div class="bk-detail-val">{{ b.flight.departure_time.strftime('%A, %d %b %Y') }}</div>
+              </div>
+              <div class="bk-detail-item">
+                <div class="bk-detail-label">Boarding</div>
+                <div class="bk-detail-val">{{ b.flight.departure_time|boardingtime }}</div>
+              </div>
+              <div class="bk-detail-item">
+                <div class="bk-detail-label">Passengers</div>
+                <div class="bk-detail-val">{{ b.passengers }}</div>
+              </div>
+              <div class="bk-detail-item">
+                <div class="bk-detail-label">Price per person</div>
+                <div class="bk-detail-val">${{ "%.2f"|format(b.total_usd / b.passengers) }}</div>
+              </div>
+              {% if b.seat_number %}
+              <div class="bk-detail-item">
+                <div class="bk-detail-label">Seat(s)</div>
+                <div class="bk-detail-val">{{ b.seat_number.replace(',', ', ') }}</div>
+              </div>
+              {% endif %}
+              {% if b.payment %}
+              <div class="bk-detail-item">
+                <div class="bk-detail-label">Payment</div>
+                <div class="bk-detail-val">{{ b.payment.amount_crypto|round(6) }} {{ b.payment.crypto_type }}</div>
+              </div>
+              {% if b.payment.tx_hash %}
+              <div class="bk-detail-item bk-detail-item--wide">
+                <div class="bk-detail-label">Tx hash</div>
+                <div class="bk-detail-val bk-ref-mono bk-txhash">{{ b.payment.tx_hash }}</div>
+              </div>
+              {% endif %}
+              {% endif %}
+              {% if b.checkin_opens_at %}
+              <div class="bk-detail-item">
+                <div class="bk-detail-label">Check-in opens</div>
+                <div class="bk-detail-val">{{ b.checkin_opens_at.strftime('%d %b %Y, %H:%M') }}</div>
+              </div>
+              {% endif %}
+            </div>
+
+          </div>
+        </div>
+        <!-- ────────────────────────────────────────────────────────────── -->
+
+        <div class="booking-footer">
+          <div class="bk-ref">
+            <span class="bk-ref-label">Ref</span>
+            <span class="bk-ref-val">{{ b.id[:8].upper() }}</span>
+          </div>
+          <div class="bk-status-row">
+            {% if b.checked_in %}
+              <span class="bk-status bk-status-checked_in">Checked in</span>
+            {% else %}
+              <span class="bk-status bk-status-{{ b.status }}">{{ b.status|capitalize }}</span>
+            {% endif %}
+            {% if b.checked_in %}
+              <a href="/boarding-pass/{{ b.id }}" class="bk-action-link">Boarding pass</a>
+            {% elif b.checkin_status == 'open' %}
+              <a href="/checkin/{{ b.id }}" class="bk-checkin-open">Check in now →</a>
+            {% elif b.status == 'confirmed' %}
+              {# "View ticket" now toggles the detail panel instead of navigating away #}
+              <button class="bk-action-link bk-detail-toggle" data-target="detail-{{ b.id }}">View ticket</button>
+            {% elif b.status == 'pending' %}
+              <a href="/pay/{{ b.id }}" class="bk-action-link">Complete payment</a>
+            {% endif %}
+            {% if b.status == 'confirmed' and not b.checked_in %}
+              <button class="bk-cancel-btn" onclick="cancelBooking('{{ b.id }}')">Cancel</button>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </div>
+</section>
+
+<style>
+/* ── Detail panel ─────────────────────────────────────────── */
+.bk-detail-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1),
+              opacity    0.25s ease;
+  opacity: 0;
+}
+.bk-detail-panel.bk-detail-open {
+  max-height: 800px;
+  opacity: 1;
+}
+.bk-detail-inner {
+  border-top: 1px solid rgba(255,255,255,0.07);
+  margin-top: 1rem;
+  padding-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Timeline */
+.bk-timeline {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+.bk-tl-point {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 110px;
+}
+.bk-tl-time {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+.bk-tl-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--blue-l);
+  box-shadow: 0 0 8px var(--blue-glow);
+}
+.bk-tl-info {
+  text-align: center;
+}
+.bk-tl-iata {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.bk-tl-place {
+  font-size: 0.72rem;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+.bk-tl-bar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.5rem;
+  margin-top: 0.35rem;
+}
+.bk-tl-duration {
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+.bk-tl-line {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, var(--blue) 0%, var(--blue-l) 50%, var(--blue) 100%);
+  opacity: 0.5;
+}
+.bk-tl-class {
+  font-size: 0.68rem;
+  color: var(--text-3);
+}
+
+/* Detail grid */
+.bk-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem 1.25rem;
+}
+.bk-detail-item--wide {
+  grid-column: 1 / -1;
+}
+.bk-detail-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  margin-bottom: 0.2rem;
+}
+.bk-detail-val {
+  font-size: 0.9rem;
+  color: var(--text);
+  font-weight: 500;
+}
+.bk-ref-mono {
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.05em;
+}
+.bk-txhash {
+  font-size: 0.75rem;
+  word-break: break-all;
+  color: var(--text-2);
+}
+
+/* Toggle button styled like bk-action-link */
+button.bk-action-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+button.bk-detail-toggle[aria-expanded="true"]::after {
+  content: " ↑";
+}
+button.bk-detail-toggle[aria-expanded="false"]::after,
+button.bk-detail-toggle:not([aria-expanded])::after {
+  content: " ↓";
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.bk-detail-toggle').forEach(btn => {
+    btn.setAttribute('aria-expanded', 'false');
+    btn.addEventListener('click', () => {
+      const panel = document.getElementById(btn.dataset.target);
+      const open  = panel.classList.toggle('bk-detail-open');
+      btn.setAttribute('aria-expanded', String(open));
+      panel.setAttribute('aria-hidden', String(!open));
+    });
+  });
+});
+</script>
+
+{% endblock %}

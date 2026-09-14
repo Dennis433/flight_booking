@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Extras — SkyChain{% endblock %}
+{% block content %}
+
+<svg class="stars" xmlns="http://www.w3.org/2000/svg" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></svg>
+
+<section class="extras-page">
+  <div class="extras-card">
+
+    <div class="extras-header">
+      <a href="/" class="back-link">← Back to search</a>
+      <h2>Customize your flight</h2>
+      <p class="extras-sub">{{ flight.origin.iata_code }} → {{ flight.destination.iata_code }} · {{ flight.departure_time.strftime('%d %b %Y') }} · {{ passengers }} passenger{{ 's' if passengers|int > 1 }}</p>
+    </div>
+
+    <!-- Seat selection -->
+    <div class="extras-section">
+      <div class="extras-section-title">
+        <span class="extras-icon">💺</span>
+        <div>
+          <div class="extras-label">Seat preference</div>
+          <div class="extras-desc">Choose where you sit</div>
+        </div>
+      </div>
+      <div class="extras-options">
+        <div class="extra-option" data-key="seat" data-price="0" onclick="selectExtra(this, 'seat')">
+          <div class="extra-opt-name">No preference</div>
+          <div class="extra-opt-price">Free</div>
+        </div>
+        <div class="extra-option" data-key="seat" data-price="15" onclick="selectExtra(this, 'seat')">
+          <div class="extra-opt-name">Window seat</div>
+          <div class="extra-opt-price">+$15</div>
+        </div>
+        <div class="extra-option" data-key="seat" data-price="15" onclick="selectExtra(this, 'seat')">
+          <div class="extra-opt-name">Aisle seat</div>
+          <div class="extra-opt-price">+$15</div>
+        </div>
+        <div class="extra-option" data-key="seat" data-price="45" onclick="selectExtra(this, 'seat')">
+          <div class="extra-opt-name">Extra legroom</div>
+          <div class="extra-opt-price">+$45</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Baggage -->
+    <div class="extras-section">
+      <div class="extras-section-title">
+        <span class="extras-icon">🧳</span>
+        <div>
+          <div class="extras-label">Checked baggage</div>
+          <div class="extras-desc">Per passenger</div>
+        </div>
+      </div>
+      <div class="extras-options">
+        <div class="extra-option" data-key="baggage" data-price="0" onclick="selectExtra(this, 'baggage')">
+          <div class="extra-opt-name">Carry-on only</div>
+          <div class="extra-opt-price">Free</div>
+        </div>
+        <div class="extra-option" data-key="baggage" data-price="35" onclick="selectExtra(this, 'baggage')">
+          <div class="extra-opt-name">1 bag · 23kg</div>
+          <div class="extra-opt-price">+$35</div>
+        </div>
+        <div class="extra-option" data-key="baggage" data-price="60" onclick="selectExtra(this, 'baggage')">
+          <div class="extra-opt-name">2 bags · 23kg</div>
+          <div class="extra-opt-price">+$60</div>
+        </div>
+        <div class="extra-option" data-key="baggage" data-price="90" onclick="selectExtra(this, 'baggage')">
+          <div class="extra-opt-name">2 bags · 32kg</div>
+          <div class="extra-opt-price">+$90</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meal -->
+    <div class="extras-section">
+      <div class="extras-section-title">
+        <span class="extras-icon">🍽️</span>
+        <div>
+          <div class="extras-label">Meal preference</div>
+          <div class="extras-desc">Special dietary options available</div>
+        </div>
+      </div>
+      <div class="extras-options">
+        <div class="extra-option" data-key="meal" data-price="0" onclick="selectExtra(this, 'meal')">
+          <div class="extra-opt-name">Standard meal</div>
+          <div class="extra-opt-price">Free</div>
+        </div>
+        <div class="extra-option" data-key="meal" data-price="0" onclick="selectExtra(this, 'meal')">
+          <div class="extra-opt-name">Vegetarian</div>
+          <div class="extra-opt-price">Free</div>
+        </div>
+        <div class="extra-option" data-key="meal" data-price="0" onclick="selectExtra(this, 'meal')">
+          <div class="extra-opt-name">Vegan</div>
+          <div class="extra-opt-price">Free</div>
+        </div>
+        <div class="extra-option" data-key="meal" data-price="0" onclick="selectExtra(this, 'meal')">
+          <div class="extra-opt-name">Halal</div>
+          <div class="extra-opt-price">Free</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Travel protection -->
+    <div class="extras-section">
+      <div class="extras-section-title">
+        <span class="extras-icon">🛡️</span>
+        <div>
+          <div class="extras-label">Travel protection</div>
+          <div class="extras-desc">Cancellation and delay cover</div>
+        </div>
+      </div>
+      <div class="extras-options">
+        <div class="extra-option" data-key="insurance" data-price="0" onclick="selectExtra(this, 'insurance')">
+          <div class="extra-opt-name">No thanks</div>
+          <div class="extra-opt-price">Free</div>
+        </div>
+        <div class="extra-option" data-key="insurance" data-price="25" onclick="selectExtra(this, 'insurance')">
+          <div class="extra-opt-name">Basic cover</div>
+          <div class="extra-opt-price">+$25</div>
+        </div>
+        <div class="extra-option" data-key="insurance" data-price="55" onclick="selectExtra(this, 'insurance')">
+          <div class="extra-opt-name">Full cover</div>
+          <div class="extra-opt-price">+$55</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary bar -->
+    <div class="extras-summary">
+      <div class="extras-summary-left">
+        <div class="extras-base">
+          Base fare · ${{ "%.2f"|format(flight.price_usd) }} × {{ passengers }}
+        </div>
+        <div class="extras-total-label">Total</div>
+        <div class="extras-total" id="extras-total">
+          ${{ "%.2f"|format(flight.price_usd * passengers|int) }}
+        </div>
+      </div>
+      <button class="btn-continue" onclick="continueToPassengers('{{ flight.id }}', {{ passengers }})">
+        Continue
+      </button>
+    </div>
+
+  </div>
+</section>
+
+{% endblock %}

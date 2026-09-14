@@ -1,0 +1,734 @@
+{% extends "base.html" %}
+{% block title %}SkyChain — Book Flights with Crypto{% endblock %}
+{% block content %}
+
+<svg class="stars" xmlns="http://www.w3.org/2000/svg" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></svg>
+
+<!-- ── HERO ──────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-inner">
+
+    <div class="hero-eyebrow">
+      <span class="eyebrow-dot"></span>
+      Flights · Crypto · Instant confirmation
+    </div>
+
+    <h1>Fly anywhere.<br><span class="hero-accent">Pay in crypto.</span></h1>
+
+    <p class="hero-sub">Book real flights to every airport in the world. Pay with Bitcoin, Ethereum, or Solana — no banks, no cards, no friction.</p>
+
+    {% if session.get('user_id') %}
+    <div class="search-box">
+      <div class="search-row">
+        <div class="input-group" style="position:relative">
+          <label>From</label>
+          <input type="text" id="origin" placeholder="City or airport code" autocomplete="off" />
+          <div class="ac-dropdown" id="origin-dropdown"></div>
+        </div>
+        <div class="input-group" style="position:relative">
+          <label>To</label>
+          <input type="text" id="destination" placeholder="City or airport code" autocomplete="off" />
+          <div class="ac-dropdown" id="destination-dropdown"></div>
+        </div>
+        <div class="input-group">
+          <label>Date</label>
+          <input type="date" id="date" />
+        </div>
+        <div class="input-group">
+          <label>Passengers</label>
+          <input type="number" id="passengers" value="1" min="1" max="9" />
+        </div>
+      </div>
+      <button class="btn-search" onclick="searchFlights()">Search Flights</button>
+    </div>
+
+    {% else %}
+    <div class="auth-gate">
+      <p class="gate-text">Sign in to search and book flights</p>
+      <div class="gate-actions">
+        <a href="/login" class="btn-gate-primary">Log in</a>
+        <a href="/register" class="btn-gate-secondary">Create account</a>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="crypto-badges">
+      <div class="badge badge-btc">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M23.638 14.904c-1.602 6.43-8.113 10.34-14.542 8.736C2.67 22.05-1.244 15.525.362 9.105 1.962 2.67 8.475-1.243 14.9.358c6.43 1.605 10.342 8.115 8.738 14.548v-.002zm-6.35-4.613c.24-1.59-.974-2.45-2.64-3.03l.54-2.153-1.315-.33-.525 2.107c-.345-.087-.705-.167-1.064-.25l.526-2.127-1.32-.33-.54 2.165c-.285-.067-.565-.132-.84-.2l-1.815-.45-.35 1.407s.974.225.955.236c.537.136.63.486.615.766l-1.477 5.92c-.075.166-.24.406-.614.314.015.02-.96-.24-.96-.24l-.66 1.51 1.71.426.93.236-.54 2.19 1.32.327.54-2.165c.36.1.705.19 1.05.273l-.51 2.154 1.32.33.545-2.19c2.24.427 3.93.257 4.64-1.774.57-1.637-.03-2.58-1.217-3.196.854-.193 1.5-.76 1.68-1.93h.01zm-3.01 4.22c-.404 1.64-3.157.75-4.05.53l.72-2.9c.896.23 3.757.67 3.33 2.37zm.41-4.24c-.37 1.49-2.662.735-3.405.55l.654-2.64c.744.18 3.137.524 2.75 2.084v.006z"/></svg>
+        Bitcoin
+      </div>
+      <div class="badge badge-eth">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 17.97L4.58 13.62 11.943 24l7.37-10.38-7.372 4.35h.003zM12.056 0L4.69 12.223l7.365 4.354 7.365-4.35L12.056 0z"/></svg>
+        Ethereum
+      </div>
+      <div class="badge badge-sol">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M4.09 17.47a.67.67 0 0 1 .47-.19h16.3c.3 0 .45.36.24.57l-2.72 2.72a.67.67 0 0 1-.47.19H1.61c-.3 0-.45-.36-.24-.57l2.72-2.72zm0-13.94A.67.67 0 0 1 4.56 3.34h16.3c.3 0 .45.36.24.57L18.38 6.63a.67.67 0 0 1-.47.19H1.61c-.3 0-.45-.36-.24-.57L4.09 3.53zm15.82 6.97c.3 0 .45.36.24.57l-2.72 2.72a.67.67 0 0 1-.47.19H1.61c-.3 0-.45-.36-.24-.57l2.72-2.72a.67.67 0 0 1 .47-.19h16.3v-.0z"/></svg>
+        Solana
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── RESULTS (populated by JS) ─────────────────────── -->
+<section class="results" id="results"></section>
+
+<!-- ── STATS BAR ──────────────────────────────────────── -->
+<section class="stats-bar">
+  <div class="stats-inner">
+    <div class="stat-item">
+      <div class="stat-number">180+</div>
+      <div class="stat-desc">Destinations worldwide</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="stat-number">3</div>
+      <div class="stat-desc">Cryptocurrencies accepted</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="stat-number">&lt;60s</div>
+      <div class="stat-desc">From search to confirmed ticket</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <div class="stat-number">0</div>
+      <div class="stat-desc">Hidden fees</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ───────────────────────────────────── -->
+<section class="how-section">
+  <div class="how-inner">
+    <h2 class="section-title">How it works</h2>
+    <p class="section-sub">Four steps from anywhere in the world to a confirmed boarding pass.</p>
+
+    <div class="how-steps">
+      <div class="how-step">
+        <div class="step-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+        <div class="step-content">
+          <div class="step-title">Search flights</div>
+          <div class="step-body">Enter your route and date. We pull live availability across economy, business, and first class.</div>
+        </div>
+      </div>
+      <div class="how-connector"></div>
+      <div class="how-step">
+        <div class="step-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+        </div>
+        <div class="step-content">
+          <div class="step-title">Pick your flight</div>
+          <div class="step-body">Filter by price, cabin class, or departure time. Select the option that works for you.</div>
+        </div>
+      </div>
+      <div class="how-connector"></div>
+      <div class="how-step">
+        <div class="step-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></svg>
+        </div>
+        <div class="step-content">
+          <div class="step-title">Pay with crypto</div>
+          <div class="step-body">Send BTC, ETH, or SOL to our wallet. Paste your transaction hash — that's it.</div>
+        </div>
+      </div>
+      <div class="how-connector"></div>
+      <div class="how-step">
+        <div class="step-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg>
+        </div>
+        <div class="step-content">
+          <div class="step-title">Get your e-ticket</div>
+          <div class="step-body">Booking confirmed instantly. Your e-ticket and receipt are ready to print or save.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FEATURED ROUTES ────────────────────────────────── -->
+<section class="routes-section">
+  <div class="routes-inner">
+    <h2 class="section-title">Popular routes</h2>
+    <p class="section-sub">Some of the most searched routes on SkyChain right now.</p>
+
+    <div class="routes-grid">
+      <div class="route-card" onclick="prefillSearch('LOS','LHR')">
+        <div class="route-card-bg route-bg-1"></div>
+        <div class="route-card-content">
+          <div class="route-pair">
+            <span class="route-iata">LOS</span>
+            <span class="route-arrow">→</span>
+            <span class="route-iata">LHR</span>
+          </div>
+          <div class="route-cities">Lagos → London</div>
+          <div class="route-from">Economy from <strong>$344</strong></div>
+        </div>
+      </div>
+      <div class="route-card" onclick="prefillSearch('CDG','JFK')">
+        <div class="route-card-bg route-bg-2"></div>
+        <div class="route-card-content">
+          <div class="route-pair">
+            <span class="route-iata">CDG</span>
+            <span class="route-arrow">→</span>
+            <span class="route-iata">JFK</span>
+          </div>
+          <div class="route-cities">Paris → New York</div>
+          <div class="route-from">Economy from <strong>$390</strong></div>
+        </div>
+      </div>
+      <div class="route-card" onclick="prefillSearch('DXB','SIN')">
+        <div class="route-card-bg route-bg-3"></div>
+        <div class="route-card-content">
+          <div class="route-pair">
+            <span class="route-iata">DXB</span>
+            <span class="route-arrow">→</span>
+            <span class="route-iata">SIN</span>
+          </div>
+          <div class="route-cities">Dubai → Singapore</div>
+          <div class="route-from">Economy from <strong>$420</strong></div>
+        </div>
+      </div>
+      <div class="route-card" onclick="prefillSearch('JFK','LAX')">
+        <div class="route-card-bg route-bg-4"></div>
+        <div class="route-card-content">
+          <div class="route-pair">
+            <span class="route-iata">JFK</span>
+            <span class="route-arrow">→</span>
+            <span class="route-iata">LAX</span>
+          </div>
+          <div class="route-cities">New York → Los Angeles</div>
+          <div class="route-from">Economy from <strong>$180</strong></div>
+        </div>
+      </div>
+      <div class="route-card" onclick="prefillSearch('LHR','DXB')">
+        <div class="route-card-bg route-bg-5"></div>
+        <div class="route-card-content">
+          <div class="route-pair">
+            <span class="route-iata">LHR</span>
+            <span class="route-arrow">→</span>
+            <span class="route-iata">DXB</span>
+          </div>
+          <div class="route-cities">London → Dubai</div>
+          <div class="route-from">Economy from <strong>$510</strong></div>
+        </div>
+      </div>
+      <div class="route-card" onclick="prefillSearch('SIN','NRT')">
+        <div class="route-card-bg route-bg-6"></div>
+        <div class="route-card-content">
+          <div class="route-pair">
+            <span class="route-iata">SIN</span>
+            <span class="route-arrow">→</span>
+            <span class="route-iata">NRT</span>
+          </div>
+          <div class="route-cities">Singapore → Tokyo</div>
+          <div class="route-from">Economy from <strong>$310</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── WHY CRYPTO ─────────────────────────────────────── -->
+<section class="why-section">
+  <div class="why-inner">
+    <div class="why-text">
+      <h2>Why pay with crypto?</h2>
+      <p>Traditional payment rails add friction, fees, and gatekeepers between you and your seat. Crypto removes them.</p>
+      <ul class="why-list">
+        <li>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          No foreign transaction fees — pay the same rate anywhere on earth
+        </li>
+        <li>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          No card required — just a wallet and a transaction hash
+        </li>
+        <li>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          Immutable payment record — your tx hash is your proof of payment
+        </li>
+        <li>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          Instant confirmation — no 3–5 business day holds
+        </li>
+      </ul>
+      {% if not session.get('user_id') %}
+      <a href="/register" class="btn-gate-primary" style="display:inline-block;margin-top:2rem">Get started free</a>
+      {% endif %}
+    </div>
+    <div class="why-visual">
+      <div class="receipt-preview">
+        <div class="rp-header">
+          <span class="rp-brand">SKYCHAIN</span>
+          <span class="rp-status">✓ Confirmed</span>
+        </div>
+        <div class="rp-route">
+          <div class="rp-port">
+            <div class="rp-iata">LOS</div>
+            <div class="rp-city">Lagos</div>
+          </div>
+          <div class="rp-plane">✈</div>
+          <div class="rp-port rp-port-r">
+            <div class="rp-iata">LHR</div>
+            <div class="rp-city">London</div>
+          </div>
+        </div>
+        <div class="rp-divider"></div>
+        <div class="rp-rows">
+          <div class="rp-row"><span>Paid</span><span>$344.00</span></div>
+          <div class="rp-row"><span>Crypto</span><span>0.003821 BTC</span></div>
+          <div class="rp-row"><span>Tx hash</span><span class="rp-mono">a3f7c2…e91d</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ─────────────────────────────────────────── -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <a href="/" class="logo">SKY<span>CHAIN</span></a>
+      <p>Book flights with crypto. No banks required.</p>
+    </div>
+    <div class="footer-links">
+      <div class="footer-col">
+        <div class="footer-col-title">Flights</div>
+        <a href="/">Search</a>
+        {% if session.get('user_id') %}<a href="/dashboard">My bookings</a>{% endif %}
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Pay with</div>
+        <a href="#">Bitcoin (BTC)</a>
+        <a href="#">Ethereum (ETH)</a>
+        <a href="#">Solana (SOL)</a>
+      </div>
+      <div class="footer-col">
+        <div class="footer-col-title">Account</div>
+        {% if session.get('user_id') %}
+          <a href="/logout">Log out</a>
+        {% else %}
+          <a href="/login">Log in</a>
+          <a href="/register">Sign up</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 SkyChain. Prices shown are indicative and subject to availability.</span>
+  </div>
+</footer>
+
+<style>
+/* ── Hero additions ─────────────────────────────────── */
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+  margin-bottom: 1.75rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  background: rgba(255,255,255,0.03);
+}
+.eyebrow-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--blue-l);
+  box-shadow: 0 0 6px var(--blue-l);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:0.5; transform:scale(0.85); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .eyebrow-dot { animation: none; }
+}
+
+.hero-accent {
+  background: linear-gradient(90deg, var(--blue-l) 0%, #a78bfa 50%, var(--blue-l) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 4s linear infinite;
+}
+@keyframes shimmer {
+  to { background-position: 200% center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-accent {
+    background: none;
+    -webkit-text-fill-color: var(--blue-l);
+    color: var(--blue-l);
+    animation: none;
+  }
+}
+
+.hero-sub { font-size: 1.1rem; }
+
+/* ── Stats bar ──────────────────────────────────────── */
+.stats-bar {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  padding: 2.5rem 2rem;
+}
+.stats-inner {
+  max-width: 860px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.stat-item { text-align: center; flex: 1; min-width: 120px; }
+.stat-number {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-bottom: 0.35rem;
+}
+.stat-desc { font-size: 0.78rem; color: var(--text-3); }
+.stat-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* ── How it works ───────────────────────────────────── */
+.how-section {
+  padding: 6rem 2rem;
+}
+.how-inner {
+  max-width: 940px;
+  margin: 0 auto;
+}
+.section-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--text);
+  margin-bottom: 0.6rem;
+  text-align: center;
+}
+.section-sub {
+  font-size: 0.95rem;
+  color: var(--text-3);
+  text-align: center;
+  margin-bottom: 3.5rem;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.how-steps {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+.how-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  padding: 0 1rem;
+}
+.step-icon {
+  width: 52px; height: 52px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--blue-l);
+  flex-shrink: 0;
+}
+.step-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+}
+.step-body {
+  font-size: 0.82rem;
+  color: var(--text-3);
+  line-height: 1.55;
+}
+.how-connector {
+  flex-shrink: 0;
+  width: 48px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border), var(--blue), var(--border));
+  margin-top: 26px;
+  opacity: 0.6;
+}
+
+/* ── Popular routes ─────────────────────────────────── */
+.routes-section {
+  padding: 2rem 2rem 6rem;
+  border-top: 1px solid var(--border);
+}
+.routes-inner { max-width: 940px; margin: 0 auto; }
+.routes-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+.route-card {
+  position: relative;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s;
+  min-height: 160px;
+}
+.route-card:hover {
+  border-color: var(--border-h);
+  transform: translateY(-2px);
+}
+.route-card-bg {
+  position: absolute;
+  inset: 0;
+  opacity: 0.15;
+}
+.route-bg-1 { background: radial-gradient(ellipse at top right, #f7931a, transparent 70%); }
+.route-bg-2 { background: radial-gradient(ellipse at top right, #627eea, transparent 70%); }
+.route-bg-3 { background: radial-gradient(ellipse at top right, #9945ff, transparent 70%); }
+.route-bg-4 { background: radial-gradient(ellipse at top right, #3b82f6, transparent 70%); }
+.route-bg-5 { background: radial-gradient(ellipse at top right, #10b981, transparent 70%); }
+.route-bg-6 { background: radial-gradient(ellipse at top right, #f43f5e, transparent 70%); }
+.route-card-content {
+  position: relative;
+  z-index: 1;
+  padding: 1.5rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.3rem;
+}
+.route-pair {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+.route-iata {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.route-arrow { color: var(--text-3); font-size: 1rem; }
+.route-cities { font-size: 0.78rem; color: var(--text-2); }
+.route-from { font-size: 0.75rem; color: var(--text-3); margin-top: 0.25rem; }
+.route-from strong { color: var(--text); }
+
+/* ── Why crypto ─────────────────────────────────────── */
+.why-section {
+  border-top: 1px solid var(--border);
+  padding: 6rem 2rem;
+  background: rgba(255,255,255,0.015);
+}
+.why-inner {
+  max-width: 940px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5rem;
+  align-items: center;
+}
+.why-text h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1.5rem, 2.5vw, 2.1rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin-bottom: 1rem;
+  line-height: 1.15;
+}
+.why-text > p {
+  font-size: 0.9rem;
+  color: var(--text-2);
+  line-height: 1.65;
+  margin-bottom: 1.75rem;
+  max-width: 400px;
+}
+.why-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.why-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  font-size: 0.85rem;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+.why-list li svg {
+  color: var(--blue-l);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Receipt preview */
+.receipt-preview {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  backdrop-filter: blur(20px);
+}
+.rp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+.rp-brand {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-3);
+}
+.rp-status {
+  font-size: 0.72rem;
+  color: #4ade80;
+  background: rgba(74,222,128,0.1);
+  border: 1px solid rgba(74,222,128,0.2);
+  padding: 0.2rem 0.6rem;
+  border-radius: 100px;
+}
+.rp-route {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+.rp-port { text-align: center; }
+.rp-port-r { text-align: center; }
+.rp-iata {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.rp-city { font-size: 0.7rem; color: var(--text-3); margin-top: 0.2rem; }
+.rp-plane { font-size: 1.25rem; color: var(--text-3); }
+.rp-divider {
+  height: 1px;
+  background: var(--border);
+  margin-bottom: 1rem;
+  position: relative;
+}
+.rp-rows { display: flex; flex-direction: column; gap: 0.6rem; }
+.rp-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text-2);
+}
+.rp-row span:first-child { color: var(--text-3); }
+.rp-mono { font-family: 'Courier New', monospace; font-size: 0.72rem; }
+
+/* ── Footer ─────────────────────────────────────────── */
+.site-footer {
+  border-top: 1px solid var(--border);
+  padding: 4rem 2rem 2rem;
+  background: var(--bg-2);
+}
+.footer-inner {
+  max-width: 940px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  gap: 3rem;
+  flex-wrap: wrap;
+  margin-bottom: 3rem;
+}
+.footer-brand .logo { display: inline-block; margin-bottom: 0.75rem; }
+.footer-brand p { font-size: 0.8rem; color: var(--text-3); max-width: 200px; line-height: 1.5; }
+.footer-links { display: flex; gap: 3rem; flex-wrap: wrap; }
+.footer-col { display: flex; flex-direction: column; gap: 0.6rem; }
+.footer-col-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 0.25rem;
+}
+.footer-col a { font-size: 0.8rem; color: var(--text-3); text-decoration: none; transition: color 0.15s; }
+.footer-col a:hover { color: var(--text); }
+.footer-bottom {
+  max-width: 940px;
+  margin: 0 auto;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+
+/* ── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+  .how-steps { flex-direction: column; align-items: stretch; }
+  .how-connector { display: none; }
+  .how-step { flex-direction: row; text-align: left; }
+  .routes-grid { grid-template-columns: 1fr 1fr; }
+  .why-inner { grid-template-columns: 1fr; gap: 3rem; }
+  .stats-inner { justify-content: center; }
+  .stat-divider { display: none; }
+  .footer-inner { flex-direction: column; }
+}
+@media (max-width: 480px) {
+  .routes-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+<script>
+function prefillSearch(origin, dest) {
+  {% if session.get('user_id') %}
+  const originEl = document.getElementById('origin');
+  const destEl   = document.getElementById('destination');
+  if (!originEl) return;
+
+  // Set values and fire input events so autocomplete resolves
+  originEl.value = origin;
+  destEl.value   = dest;
+
+  // Directly set iata so search works without dropdown interaction
+  originEl.dataset.iata = origin;
+  destEl.dataset.iata   = dest;
+
+  // Scroll to search box and focus date
+  document.querySelector('.search-box').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(() => document.getElementById('date').focus(), 500);
+  {% else %}
+  window.location.href = '/register';
+  {% endif %}
+}
+</script>
+
+{% endblock %}

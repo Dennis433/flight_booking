@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Passenger details — SkyChain{% endblock %}
+{% block content %}
+
+<svg class="stars" xmlns="http://www.w3.org/2000/svg" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></svg>
+
+<section class="passenger-page">
+  <div class="passenger-card">
+
+    <div class="extras-header">
+      <a href="/" class="back-link">← Back to search</a>
+      <h2>Passenger details</h2>
+      <p class="extras-sub">
+        {{ flight.origin.iata_code }} → {{ flight.destination.iata_code }} ·
+        {{ flight.departure_time.strftime('%d %b %Y') }} ·
+        {{ passengers }} passenger{{ 's' if passengers > 1 }}
+      </p>
+    </div>
+
+    <div id="pax-error" class="auth-error"></div>
+
+    {% for i in range(passengers) %}
+    <div class="passenger-block">
+      <div class="passenger-block-title">
+        Passenger {{ i + 1 }}{% if i == 0 %} (lead){% endif %}
+      </div>
+      <div class="passenger-grid">
+        <div class="input-group">
+          <label>First name</label>
+          <input type="text" class="pax-first" placeholder="As on passport" />
+        </div>
+        <div class="input-group">
+          <label>Last name</label>
+          <input type="text" class="pax-last" placeholder="As on passport" />
+        </div>
+        <div class="input-group">
+          <label>Date of birth</label>
+          <input type="date" class="pax-dob" />
+        </div>
+        <div class="input-group">
+          <label>Passport / ID number</label>
+          <input type="text" class="pax-passport" placeholder="e.g. A12345678" />
+        </div>
+        <div class="input-group">
+          <label>Nationality</label>
+          <input type="text" class="pax-nationality" placeholder="e.g. Nigerian" />
+        </div>
+        <div class="input-group">
+          <label>Passport expiry</label>
+          <input type="date" class="pax-expiry" />
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+    <!-- Contact details (lead passenger) -->
+    <div class="passenger-block">
+      <div class="passenger-block-title">Contact details</div>
+      <div class="passenger-grid">
+        <div class="input-group">
+          <label>Email</label>
+          <input type="email" id="contact-email" placeholder="Booking confirmation sent here" />
+        </div>
+        <div class="input-group">
+          <label>Phone</label>
+          <input type="tel" id="contact-phone" placeholder="+234 800 000 0000" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary bar -->
+    <div class="extras-summary">
+      <div class="extras-summary-left">
+        <div class="extras-base">{{ passengers }} passenger{{ 's' if passengers > 1 }} · {{ flight.cabin_class|capitalize }}</div>
+        <div class="extras-total-label">Total</div>
+        <div class="extras-total">${{ "%.2f"|format(flight.price_usd * passengers) }}</div>
+      </div>
+      <button class="btn-continue" onclick="submitPassengers('{{ flight.id }}', {{ passengers }})">
+        Continue to payment
+      </button>
+    </div>
+
+  </div>
+</section>
+
+{% endblock %}

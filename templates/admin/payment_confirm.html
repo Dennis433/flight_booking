@@ -1,0 +1,11 @@
+{% extends 'admin/model/list.html' %}
+{% block body %}
+{{ super() }}
+<script>
+function confirmPayment(id) {
+  if (!confirm('Confirm this payment and activate the booking?')) return;
+  fetch('/admin/payment/confirm/' + id, { method: 'POST' })
+    .then(r => { if (r.ok) location.reload(); });
+}
+</script>
+{% endblock %}

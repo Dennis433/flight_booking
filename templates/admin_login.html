@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Admin Login — SkyChain{% endblock %}
+{% block content %}
+
+<svg class="stars" xmlns="http://www.w3.org/2000/svg" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></svg>
+
+<section class="auth-page">
+  <div class="auth-card">
+    <h2>Admin access</h2>
+    <p class="auth-sub">SkyChain control panel</p>
+
+    <div class="auth-error" id="auth-error"></div>
+
+    <div class="input-group">
+      <label>Email</label>
+      <input type="email" id="email" placeholder="admin@skychain.com" />
+    </div>
+
+    <div class="input-group">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="••••••••" />
+    </div>
+
+    <button class="btn-auth" onclick="adminLogin()">Enter panel</button>
+  </div>
+</section>
+
+<script>
+async function adminLogin() {
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const err      = document.getElementById('auth-error');
+
+  const res  = await fetch('/admin-login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const data = await res.json();
+
+  if (!res.ok) {
+    err.textContent = data.error;
+    err.classList.add('show');
+    return;
+  }
+  window.location.href = '/admin';
+}
+</script>
+
+{% endblock %}

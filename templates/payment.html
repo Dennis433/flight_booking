@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Payment — SkyChain{% endblock %}
+{% block content %}
+
+<svg class="stars" xmlns="http://www.w3.org/2000/svg" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></svg>
+
+<section class="payment-page">
+  <div class="payment-card">
+    <h2>Complete your booking</h2>
+
+    <div class="booking-summary">
+      <div class="summary-row">
+        <span>Flight</span>
+        <span>{{ booking.flight.flight_number }}</span>
+      </div>
+      <div class="summary-row">
+        <span>Route</span>
+        <span>{{ booking.flight.origin.iata_code }} → {{ booking.flight.destination.iata_code }}</span>
+      </div>
+      <div class="summary-row">
+        <span>Passengers</span>
+        <span>{{ booking.passengers }}</span>
+      </div>
+      <div class="summary-row">
+        <span>Departure</span>
+        <span>{{ booking.flight.departure_time.strftime('%d %b %Y, %H:%M') }}</span>
+      </div>
+      <div class="summary-row total">
+        <span>Total</span>
+        <span class="summary-val">${{ "%.2f"|format(booking.total_usd) }}</span>
+      </div>
+    </div>
+
+    <div class="crypto-select">
+      <p>Pay with</p>
+      <div class="crypto-options">
+        <div class="crypto-option" id="opt-btc" onclick="selectCrypto('BTC')">
+          <div class="crypto-icon">₿</div>
+          <div class="crypto-name">Bitcoin</div>
+          <div class="crypto-symbol">BTC</div>
+        </div>
+        <div class="crypto-option" id="opt-eth" onclick="selectCrypto('ETH')">
+          <div class="crypto-icon">Ξ</div>
+          <div class="crypto-name">Ethereum</div>
+          <div class="crypto-symbol">ETH</div>
+        </div>
+        <div class="crypto-option" id="opt-sol" onclick="selectCrypto('SOL')">
+          <div class="crypto-icon">◎</div>
+          <div class="crypto-name">Solana</div>
+          <div class="crypto-symbol">SOL</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="wallet-info" id="wallet-info">
+      <div class="wallet-label">Send exactly to this address</div>
+      <div class="wallet-address" id="wallet-address"></div>
+      <div class="wallet-amount" id="wallet-amount"></div>
+    </div>
+
+    <div class="tx-input-group" id="tx-group" style="display:none">
+      <label>Transaction hash</label>
+      <input type="text" id="tx-hash" placeholder="Paste your transaction hash here" />
+    </div>
+
+    <div class="auth-error" id="pay-error"></div>
+
+    <button class="btn-confirm" id="btn-confirm" style="display:none" onclick="confirmPayment('{{ booking.id }}')">
+      Confirm payment
+    </button>
+  </div>
+</section>
+
+{% endblock %}

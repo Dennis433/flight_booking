@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Boarding Pass — SkyChain{% endblock %}
+{% block content %}
+
+<svg class="stars" xmlns="http://www.w3.org/2000/svg" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></svg>
+
+<section class="confirmation-page">
+  <div class="confirmation-card">
+
+    <div class="confirm-icon confirm-icon-blue">✈</div>
+    <h2>Boarding pass</h2>
+    <p class="confirm-sub">You're checked in. Have a great flight.</p>
+
+    <!-- Boarding pass — reuses eticket chrome, swaps the lower half -->
+    <div class="eticket" style="margin-bottom:2rem">
+
+      <!-- Same header as e-ticket -->
+      <div class="eticket-header">
+        <div class="eticket-brand">SKYCHAIN</div>
+        <div class="eticket-ref">{{ booking.id[:8].upper() }}</div>
+      </div>
+
+      <!-- Same route display as e-ticket -->
+      <div class="eticket-route">
+        <div class="eticket-port">
+          <div class="eticket-iata">{{ booking.flight.origin.iata_code }}</div>
+          <div class="eticket-city">{{ booking.flight.origin.city }}</div>
+          <div class="eticket-time">{{ booking.flight.departure_time.strftime('%H:%M') }}</div>
+        </div>
+        <div class="eticket-mid">
+          <div class="eticket-line">
+            <div class="eticket-plane">✈</div>
+          </div>
+          <div class="eticket-flight-num">{{ booking.flight.flight_number }}</div>
+        </div>
+        <div class="eticket-port eticket-port-right">
+          <div class="eticket-iata">{{ booking.flight.destination.iata_code }}</div>
+          <div class="eticket-city">{{ booking.flight.destination.city }}</div>
+          <div class="eticket-time">{{ booking.flight.arrival_time.strftime('%H:%M') }}</div>
+        </div>
+      </div>
+
+      <!-- Same tearline notch -->
+      <div class="eticket-divider">
+        <div class="eticket-notch eticket-notch-left"></div>
+        <div class="eticket-notch eticket-notch-right"></div>
+      </div>
+
+      <!-- Boarding pass lower half — gate / seat / boarding time -->
+      <div class="bp-fields">
+        <div class="bp-field bp-field-large">
+          <div class="eticket-detail-label">Seat</div>
+          <div class="bp-field-val-large">{{ booking.seat_number or '—' }}</div>
+        </div>
+        <div class="bp-field bp-field-large">
+          <div class="eticket-detail-label">Gate</div>
+          <div class="bp-field-val-large bp-gate">{{ gate }}</div>
+        </div>
+        <div class="bp-field">
+          <div class="eticket-detail-label">Boarding</div>
+          <div class="eticket-detail-val">{{ booking.flight.departure_time | boardingtime }}</div>
+        </div>
+        <div class="bp-field">
+          <div class="eticket-detail-label">Date</div>
+          <div class="eticket-detail-val">{{ booking.flight.departure_time.strftime('%d %b %Y') }}</div>
+        </div>
+        <div class="bp-field">
+          <div class="eticket-detail-label">Passenger</div>
+          <div class="eticket-detail-val">{{ booking.user.full_name }}</div>
+        </div>
+        <div class="bp-field">
+          <div class="eticket-detail-label">Cabin</div>
+          <div class="eticket-detail-val">{{ booking.flight.cabin_class|capitalize }}</div>
+        </div>
+      </div>
+
+      <!-- Barcode strip -->
+      <div class="bp-barcode-wrap">
+        <div class="bp-barcode" id="bp-barcode" aria-label="Boarding pass barcode"></div>
+        <div class="bp-barcode-ref">{{ booking.id.replace('-','').upper()[:20] }}</div>
+      </div>
+
+    </div>
+
+    <div class="confirm-actions">
+      <button class="btn-gate-primary" onclick="window.print()">Print / save PDF</button>
+      <a href="/dashboard" class="btn-gate-secondary">My bookings</a>
+    </div>
+
+  </div>
+</section>
+
+<script>
+// ── Barcode placeholder (CSS bar pattern from booking ID) ─────────────────────
+// Generates a deterministic thin/wide bar sequence from the booking ref so
+// every pass looks unique. Not a real scannable barcode — admin verification
+// uses the booking ID directly.
+(function () {
+  const ref   = "{{ booking.id }}".replace(/-/g, '');
+  const wrap  = document.getElementById('bp-barcode');
+  let   html  = '';
+  for (let i = 0; i < ref.length * 2; i++) {
+    const charCode = ref.charCodeAt(i % ref.length);
+    const wide     = (charCode + i) % 3 === 0;
+    const gap      = (charCode + i) % 5 === 0;
+    html += `<span class="bp-bar${wide ? ' bp-bar-wide' : ''}"></span>`;
+    if (gap) html += `<span class="bp-gap"></span>`;
+  }
+  wrap.innerHTML = html;
+})();
+</script>
+{% endblock %}
