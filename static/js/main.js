@@ -563,7 +563,7 @@ async function confirmPayment(bookingId) {
 
   const totalEl  = document.querySelector('.summary-row.total .summary-val');
   const totalUsd = totalEl ? parseFloat(totalEl.textContent.replace('$', '')) : 0;
-  const amount   = (totalUsd * WALLETS[selectedCrypto].rate).toFixed(6);
+  const amount   = (totalUsd * RATES[selectedCrypto]).toFixed(6);
 
   const res  = await fetch(`/pay/${bookingId}/submit`, {
     method:  'POST',
