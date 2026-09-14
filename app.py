@@ -385,13 +385,38 @@ def submit_payment(booking_id):
         tx_hash       = tx_hash,
         status        = 'pending'
     )
+    booking.status = 'pending'
     db.session.add(payment)
     db.session.commit()
 
-    return jsonify({'message': 'Payment submitted, awaiting confirmation', 'payment_id': payment.id}), 201
+    create_notification(booking.user_id, booking, 'payment_pending')
+
+    pending_url = url_for('booking_pending', booking_id=booking_id)
+    return jsonify({
+        'message':     'Payment submitted, awaiting confirmation',
+        'payment_id':  payment.id,
+        'pending_url': pending_url
+    }), 201
 
 
-# ─── Confirmation ──────────────────────────────────────────
+@app.route('/booking/<booking_id>/status')
+def booking_status(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+    return jsonify({
+        'status':           booking.status,
+        'confirmation_url': url_for('confirmation', booking_id=booking_id) if booking.status == 'confirmed' else None
+    })
+
+
+# ─── Pending / Confirmation ────────────────────────────────
+
+@app.route('/booking/<booking_id>/pending')
+def booking_pending(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+    # If admin already confirmed while user was navigating, go straight to confirmation
+    if booking.status == 'confirmed':
+        return redirect(url_for('confirmation', booking_id=booking_id))
+    return render_template('pending.html', booking=booking)
 
 @app.route('/confirmation/<booking_id>')
 def confirmation(booking_id):
