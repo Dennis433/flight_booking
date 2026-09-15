@@ -1,11 +1,19 @@
 {% extends 'admin/model/list.html' %}
-{% block body %}
+
+{% block tail %}
 {{ super() }}
 <script>
 function confirmPayment(id) {
-  if (!confirm('Confirm this payment and activate the booking?')) return;
+  if (!confirm('Confirm this payment and send receipt to the customer?')) return;
   fetch('/admin/payment/confirm/' + id, { method: 'POST' })
-    .then(r => { if (r.ok) location.reload(); });
+    .then(r => {
+      if (r.ok) {
+        alert('Payment confirmed and receipt sent.');
+        location.reload();
+      } else {
+        alert('Something went wrong.');
+      }
+    });
 }
 </script>
 {% endblock %}
