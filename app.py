@@ -6,7 +6,7 @@ from flask_admin import AdminIndexView, expose
 from flask_mail import Mail, Message
 from markupsafe import Markup
 from config import Config
-from models import db, User, Airport, Flight, Booking, Payment
+from models import db, User, Airport, Flight, Booking, Payment, Notification
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta, datetime, timezone
 import httpx
