@@ -394,10 +394,29 @@ def submit_payment(booking_id):
     data    = request.get_json()
 
     crypto  = data.get('crypto_type', '').upper()
-    tx_hash = data.get('tx_hash')
+    tx_hash = data.get('tx_hash', '').strip()
 
     if crypto not in ['BTC', 'ETH', 'SOL']:
         return jsonify({'error': 'Unsupported crypto'}), 400
+
+    if not tx_hash:
+        return jsonify({'error': 'Transaction hash is required'}), 400
+
+    # If this booking already has a payment, just redirect — don't create another.
+    # Happens when the user hits submit twice or refreshes mid-flight.
+    if booking.payment:
+        pending_url = url_for('pending_page', booking_id=booking_id)
+        return jsonify({
+            'message':     'Payment already submitted',
+            'payment_id':  booking.payment.id,
+            'pending_url': pending_url
+        }), 200
+
+    # Reject a tx hash that's already used by any other payment.
+    # This catches copy-paste mistakes and protects the unique constraint.
+    existing_tx = Payment.query.filter_by(tx_hash=tx_hash).first()
+    if existing_tx:
+        return jsonify({'error': 'This transaction hash has already been used. Please check your hash and try again.'}), 409
 
     payment = Payment(
         booking_id    = booking_id,
