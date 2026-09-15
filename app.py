@@ -117,8 +117,30 @@ class PaymentAdmin(SecureModelView):
         payment.status         = 'confirmed'
         payment.confirmed_at   = datetime.now(timezone.utc)
         payment.booking.status = 'confirmed'
+
+        booking = payment.booking
+        try:
+            notif_body = (
+                f'Your flight {booking.flight.flight_number} '
+                f'({booking.flight.origin.iata_code} → {booking.flight.destination.iata_code}) '
+                f'on {booking.flight.departure_time.strftime("%d %b %Y")} is confirmed. '
+                f'Ref: {booking.id[:8].upper()}'
+            )
+        except Exception:
+            notif_body = f'Your booking {booking.id[:8].upper()} has been confirmed.'
+
+        notification = Notification(
+            user_id    = booking.user_id,
+            booking_id = booking.id,
+            type       = 'payment_confirmed',
+            title      = 'Booking confirmed ✓',
+            body       = notif_body,
+            read       = False
+        )
+        db.session.add(notification)
         db.session.commit()
-        send_receipt(payment.booking)
+
+        send_receipt(booking)
         return ('', 204)
 
 
@@ -622,7 +644,7 @@ def api_notifications():
         'body':       n.body,
         'read':       n.read,
         'booking_id': n.booking_id,
-        'created_at': n.created_at.isoformat() if n.created_at else None
+        'created_at': n.created_at.strftime('%-d %b, %H:%M') if n.created_at else ''
     } for n in notifications])
 
 
