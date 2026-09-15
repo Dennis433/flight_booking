@@ -1,139 +1,662 @@
-from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timedelta
-import uuid
+// ── Star field ────────────────────────────────────────
+function drawStars() {
+  const svg = document.querySelector('.stars');
+  if (!svg) return;
+  const w = window.innerWidth, h = window.innerHeight;
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  let html = '';
+  for (let i = 0; i < 120; i++) {
+    const x  = Math.random() * w;
+    const y  = Math.random() * h;
+    const r  = Math.random() * 1.2;
+    const op = (Math.random() * 0.5 + 0.1).toFixed(2);
+    html += `<circle cx="${x}" cy="${y}" r="${r}" fill="white" opacity="${op}"/>`;
+  }
+  svg.innerHTML = html;
+}
+drawStars();
 
-db = SQLAlchemy()
+// ── Airport autocomplete ──────────────────────────────
+function setupAutocomplete(inputId, dropdownId) {
+  const input    = document.getElementById(inputId);
+  const dropdown = document.getElementById(dropdownId);
+  if (!input || !dropdown) return;
+
+  let timer;
+  let activeIndex = -1;
+  let results     = [];
+
+  function close() {
+    dropdown.style.display = 'none';
+    activeIndex = -1;
+  }
+
+  function highlight(index) {
+    const items = dropdown.querySelectorAll('.ac-item');
+    items.forEach((el, i) => el.classList.toggle('ac-active', i === index));
+    if (items[index]) items[index].scrollIntoView({ block: 'nearest' });
+  }
+
+  function renderResults(data) {
+    results = data;
+    if (!data.length) { close(); return; }
+    dropdown.innerHTML = data.map((a, i) => `
+      <div class="ac-item" data-index="${i}">
+        <span class="ac-iata">${a.iata}</span>
+        <span class="ac-info">${a.name}, ${a.city} <span class="ac-country">${a.country}</span></span>
+      </div>
+    `).join('');
+    dropdown.style.display = 'block';
+    activeIndex = -1;
+
+    dropdown.querySelectorAll('.ac-item').forEach(el => {
+      el.addEventListener('mousedown', e => {
+        e.preventDefault();
+        const idx = parseInt(el.dataset.index);
+        pick(results[idx]);
+      });
+    });
+  }
+
+  function pick(airport) {
+    input.value        = `${airport.iata} — ${airport.city}, ${airport.country}`;
+    input.dataset.iata = airport.iata;
+    input.classList.remove('ac-invalid');
+    close();
+  }
+
+  function markInvalid() {
+    input.dataset.iata = '';
+    input.classList.add('ac-invalid');
+    input.focus();
+  }
+
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    delete input.dataset.iata;
+    input.classList.remove('ac-invalid');
+    lastSearchKey = '';   // form changed — allow re-search
+    const q = input.value.trim();
+    if (q.length < 2) { close(); return; }
+
+    dropdown.innerHTML = '<div class="ac-loading">Searching…</div>';
+    dropdown.style.display = 'block';
+
+    timer = setTimeout(async () => {
+      try {
+        const res  = await fetch(`/airports/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        renderResults(data);
+      } catch {
+        close();
+      }
+    }, 220);
+  });
+
+  input.addEventListener('keydown', e => {
+    const items = dropdown.querySelectorAll('.ac-item');
+    if (!items.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIndex = Math.min(activeIndex + 1, items.length - 1);
+      highlight(activeIndex);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIndex = Math.max(activeIndex - 1, 0);
+      highlight(activeIndex);
+    } else if (e.key === 'Enter' && activeIndex >= 0) {
+      e.preventDefault();
+      pick(results[activeIndex]);
+    } else if (e.key === 'Escape') {
+      close();
+    }
+  });
+
+  // Attempt to resolve the field from the current result set.
+  // Called on blur (after 150ms) and synchronously by searchFlights before it reads dataset.iata.
+  function tryResolve() {
+    if (input.dataset.iata) return true;       // already resolved
+    if (!input.value.trim()) return false;     // empty — let searchFlights handle the message
+
+    const q = input.value.trim().toUpperCase();
+    const exactIata = results.find(r => r.iata === q);
+    if (exactIata) { pick(exactIata); return true; }
+    if (results.length === 1) { pick(results[0]); return true; }
+    markInvalid();
+    return false;
+  }
+
+  // Expose on the element so searchFlights can call it before reading dataset.iata
+  input._tryResolve = tryResolve;
+
+  input.addEventListener('blur', () => {
+    // Only attempt resolution while results aren't shown yet
+    // (avoids spurious re-resolution when user clicks filter pills)
+    setTimeout(() => {
+      close();
+      if (!input.dataset.iata) tryResolve();
+    }, 150);
+  });
+}
+
+// Init autocomplete on index page
+setupAutocomplete('origin', 'origin-dropdown');
+setupAutocomplete('destination', 'destination-dropdown');
+
+// ── Search ────────────────────────────────────────────
+// ── Search + Filter/Sort ──────────────────────────────
+let allFlights      = [];
+let paxCount        = 1;
+let lastSearchKey  = '';   // set on search, cleared on input change
+
+async function searchFlights() {
+  const originInput = document.getElementById('origin');
+  const destInput   = document.getElementById('destination');
+  const date        = document.getElementById('date').value;
+  paxCount          = Math.max(1, parseInt(document.getElementById('passengers').value) || 1);
+  const resultsEl   = document.getElementById('results');
+
+  // Synchronously resolve any unresolved-but-resolvable fields before reading iata
+  originInput?._tryResolve?.();
+  destInput?._tryResolve?.();
+
+  const origin      = originInput?.dataset.iata;
+  const destination = destInput?.dataset.iata;
+
+  // Distinguish "never touched" (value empty) from "typed but unresolved"
+  if (!origin) {
+    const msg = originInput?.value.trim()
+      ? 'Please select an origin airport from the dropdown.'
+      : 'Please enter an origin airport.';
+    originInput?.classList.add('ac-invalid');
+    showError(resultsEl, msg);
+    resultsEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    originInput?.focus(); return;
+  }
+  if (!destination) {
+    const msg = destInput?.value.trim()
+      ? 'Please select a destination airport from the dropdown.'
+      : 'Please enter a destination airport.';
+    destInput?.classList.add('ac-invalid');
+    showError(resultsEl, msg);
+    resultsEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    destInput?.focus(); return;
+  }
+
+  // Deduplicate: ignore if this exact search already ran (cleared on input change)
+  const searchKey = `${origin}|${destination}|${date}|${paxCount}`;
+  if (searchKey === lastSearchKey) return;
+  lastSearchKey = searchKey;
+
+  resultsEl.innerHTML = `<div class="state-empty">
+    <div class="loading-dots"><span></span><span></span><span></span></div>
+    <p>Searching flights\u2026</p>
+  </div>`;
+
+  try {
+    const res  = await fetch(`/search?origin=${origin}&destination=${destination}&date=${date}`);
+    const data = await res.json();
+
+    if (!res.ok)      { showError(resultsEl, data.error || 'Search failed.'); return; }
+    if (!data.length) { showError(resultsEl, 'No flights found for that route.'); return; }
+
+    allFlights = data;
+    try {
+      renderFiltersAndResults();
+      document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (renderErr) {
+      console.error('renderFiltersAndResults threw:', renderErr);
+      showError(resultsEl, 'Results loaded but could not be displayed. Check console for details.');
+    }
+
+  } catch (e) {
+    lastSearchKey = '';   // allow retry after error
+    showError(resultsEl, 'Something went wrong. Try again.');
+  }
+}
+
+function renderFiltersAndResults() {
+  const resultsEl = document.getElementById('results');
+  const prices    = allFlights.map(f => f.price_usd * paxCount);
+  const minPrice  = Math.floor(Math.min(...prices));
+  const maxPrice  = Math.ceil(Math.max(...prices));
+  const cabins    = [...new Set(allFlights.map(f => f.cabin))].sort();
+
+  resultsEl.innerHTML = `
+    <div class="filters-bar">
+      <div class="filters-row">
+        <div class="filter-group">
+          <span class="filter-label">Sort</span>
+          <div class="filter-pills" id="sort-pills">
+            <button class="pill active" data-sort="price">Price</button>
+            <button class="pill" data-sort="departure">Departure</button>
+            <button class="pill" data-sort="duration">Duration</button>
+          </div>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">Cabin</span>
+          <div class="filter-pills" id="cabin-pills">
+            <button class="pill active" data-cabin="all">All</button>
+            ${cabins.map(c => `<button class="pill" data-cabin="${c}">${c}</button>`).join('')}
+          </div>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">Departs</span>
+          <div class="filter-pills" id="time-pills">
+            <button class="pill active" data-time="any">Any</button>
+            <button class="pill" data-time="morning">Morning</button>
+            <button class="pill" data-time="afternoon">Afternoon</button>
+            <button class="pill" data-time="evening">Evening</button>
+          </div>
+        </div>
+        <div class="filter-group filter-group-price">
+          <span class="filter-label">Max price <strong id="price-display">$${maxPrice.toLocaleString()}</strong></span>
+          <input type="range" class="price-slider" id="price-slider"
+            min="${minPrice}" max="${maxPrice}" value="${maxPrice}"
+            oninput="onPriceSlide(this.value)">
+        </div>
+        <button class="filter-reset" onclick="resetFilters()">Reset</button>
+      </div>
+    </div>
+    <div id="results-list"></div>
+  `;
+
+  document.getElementById('sort-pills').addEventListener('click', e => {
+    const btn = e.target.closest('.pill[data-sort]');
+    if (!btn) return;
+    document.querySelectorAll('#sort-pills .pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    applyFilters();
+  });
+
+  document.getElementById('cabin-pills').addEventListener('click', e => {
+    const btn = e.target.closest('.pill[data-cabin]');
+    if (!btn) return;
+    document.querySelectorAll('#cabin-pills .pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    applyFilters();
+  });
+
+  document.getElementById('time-pills').addEventListener('click', e => {
+    const btn = e.target.closest('.pill[data-time]');
+    if (!btn) return;
+    document.querySelectorAll('#time-pills .pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    applyFilters();
+  });
+
+  applyFilters();
+}
+
+function onPriceSlide(val) {
+  document.getElementById('price-display').textContent = '$' + parseInt(val).toLocaleString();
+  applyFilters();
+}
+
+function resetFilters() {
+  const prices   = allFlights.map(f => f.price_usd * paxCount);
+  const maxPrice = Math.ceil(Math.max(...prices));
+  const slider   = document.getElementById('price-slider');
+  if (slider) {
+    slider.value = maxPrice;
+    document.getElementById('price-display').textContent = '$' + maxPrice.toLocaleString();
+  }
+  ['sort-pills','cabin-pills','time-pills'].forEach(id => {
+    const first = document.querySelector('#' + id + ' .pill');
+    if (first) {
+      document.querySelectorAll('#' + id + ' .pill').forEach(p => p.classList.remove('active'));
+      first.classList.add('active');
+    }
+  });
+  applyFilters();
+}
+
+function applyFilters() {
+  const sort    = document.querySelector('#sort-pills .pill.active')?.dataset.sort   || 'price';
+  const cabin   = document.querySelector('#cabin-pills .pill.active')?.dataset.cabin || 'all';
+  const time    = document.querySelector('#time-pills .pill.active')?.dataset.time   || 'any';
+  const maxPx   = parseFloat(document.getElementById('price-slider')?.value) || Infinity;
+  const list    = document.getElementById('results-list');
+  if (!list) return;
+
+  let filtered = allFlights.filter(f => {
+    const total = f.price_usd * paxCount;
+    if (total > maxPx) return false;
+    if (cabin !== 'all' && f.cabin !== cabin) return false;
+    if (time !== 'any') {
+      const dep = f.departure.endsWith('Z') ? f.departure : f.departure + 'Z';
+      const h = new Date(dep).getUTCHours();
+      if (time === 'morning'   && !(h >= 5  && h < 12)) return false;
+      if (time === 'afternoon' && !(h >= 12 && h < 18)) return false;
+      if (time === 'evening'   && !(h >= 18 || h < 5))  return false;
+    }
+    return true;
+  });
+
+  filtered.sort((a, b) => {
+    if (sort === 'price')     return a.price_usd - b.price_usd;
+    if (sort === 'departure') return new Date(a.departure + (a.departure.endsWith('Z') ? '' : 'Z')) - new Date(b.departure + (b.departure.endsWith('Z') ? '' : 'Z'));
+    if (sort === 'duration')  return (new Date(a.arrival) - new Date(a.departure)) - (new Date(b.arrival) - new Date(b.departure));
+    return 0;
+  });
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="state-empty"><p>No flights match your filters. <button class="link-btn" onclick="resetFilters()">Clear filters</button></p></div>`;
+    return;
+  }
+
+  list.innerHTML = `<p class="results-header">${filtered.length} of ${allFlights.length} flight${allFlights.length > 1 ? 's' : ''}</p>`;
+  filtered.forEach(f => list.appendChild(flightCard(f, paxCount)));
+}
+
+function flightCard(f, passengers) {
+  const dep      = new Date(f.departure + (f.departure.endsWith('Z') ? '' : 'Z'));
+  const arr      = new Date(f.arrival   + (f.arrival.endsWith('Z')   ? '' : 'Z'));
+  const dur      = duration(dep, arr);
+  const total    = (f.price_usd * passengers).toLocaleString();
+  const seatsLow = f.seats > 0 && f.seats <= 5;
+  const card     = document.createElement('div');
+  card.className = 'flight-card';
+  card.innerHTML = `
+    <div>
+      <div class="flight-code">${f.origin}</div>
+      <div class="flight-time">${fmt(dep)}</div>
+      <div class="flight-city">${f.origin_city}</div>
+    </div>
+    <div class="flight-route">
+      <div class="route-line"></div>
+      <div class="flight-duration">${dur}</div>
+    </div>
+    <div>
+      <div class="flight-code">${f.destination}</div>
+      <div class="flight-time">${fmt(arr)}</div>
+      <div class="flight-city">${f.dest_city}</div>
+    </div>
+    <div class="flight-price">
+      <div class="price-label">from</div>
+      <div class="price-usd">$${total}</div>
+      <div class="flight-meta">
+        <span class="cabin-badge">${f.cabin}</span>
+        ${seatsLow ? `<span class="seats-warn">${f.seats} left</span>` : ''}
+      </div>
+      <button class="btn-book" onclick="bookFlight('${f.id}', ${passengers})">Select</button>
+    </div>
+  `;
+  return card;
+}
 
 
-class User(db.Model):
-    __tablename__ = 'users'
+async function bookFlight(flightId, passengers) {
+  const res  = await fetch(`/book/${flightId}`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ passengers: parseInt(passengers) })
+  });
+  const data = await res.json();
+  if (res.status === 401) { window.location.href = '/login'; return; }
+  if (!res.ok) { alert(data.error); return; }
+  window.location.href = `/extras/${flightId}?passengers=${passengers}`;
+}
 
-    id            = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    email         = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)
-    full_name     = db.Column(db.String(100), nullable=False)
-    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+function fmt(d) {
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
 
-    bookings = db.relationship('Booking', backref='user', lazy=True)
+function duration(dep, arr) {
+  const diff = Math.abs(arr - dep);
+  const h    = Math.floor(diff / 36e5);
+  const m    = Math.floor((diff % 36e5) / 6e4);
+  return `${h}h ${m}m`;
+}
 
+function showError(el, msg) {
+  el.innerHTML = `<div class="state-empty"><p>${msg}</p></div>`;
+}
 
-class Airport(db.Model):
-    __tablename__ = 'airports'
+// ── Auth ──────────────────────────────────────────────
+async function login() {
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const err      = document.getElementById('auth-error');
 
-    id        = db.Column(db.Integer, primary_key=True)
-    iata_code = db.Column(db.String(3), unique=True, nullable=False)
-    name      = db.Column(db.String(200), nullable=False)
-    city      = db.Column(db.String(100), nullable=False)
-    country   = db.Column(db.String(100), nullable=False)
-    latitude  = db.Column(db.Float, nullable=False)
-    longitude = db.Column(db.Float, nullable=False)
+  if (!email || !password) { showAuthError(err, 'Fill in all fields.'); return; }
 
+  const res  = await fetch('/login', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ email, password })
+  });
+  const data = await res.json();
 
-class Flight(db.Model):
-    __tablename__ = 'flights'
+  if (!res.ok) { showAuthError(err, data.error); return; }
+  window.location.href = '/';
+}
 
-    id              = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    flight_number   = db.Column(db.String(10), nullable=False)
-    origin_id       = db.Column(db.Integer, db.ForeignKey('airports.id'), nullable=False)
-    destination_id  = db.Column(db.Integer, db.ForeignKey('airports.id'), nullable=False)
-    departure_time  = db.Column(db.DateTime, nullable=False)
-    arrival_time    = db.Column(db.DateTime, nullable=False)
-    price_usd       = db.Column(db.Float, nullable=False)
-    seats_available = db.Column(db.Integer, default=150)
-    cabin_class     = db.Column(db.String(20), default='economy')
+async function register() {
+  const full_name = document.getElementById('full_name').value.trim();
+  const email     = document.getElementById('email').value.trim();
+  const password  = document.getElementById('password').value;
+  const err       = document.getElementById('auth-error');
 
-    origin      = db.relationship('Airport', foreign_keys=[origin_id])
-    destination = db.relationship('Airport', foreign_keys=[destination_id])
-    bookings    = db.relationship('Booking', backref='flight', lazy=True)
+  if (!full_name || !email || !password) { showAuthError(err, 'Fill in all fields.'); return; }
+  if (password.length < 6) { showAuthError(err, 'Password must be at least 6 characters.'); return; }
 
+  const res  = await fetch('/register', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ full_name, email, password })
+  });
+  const data = await res.json();
 
-class Booking(db.Model):
-    __tablename__ = 'bookings'
+  if (!res.ok) { showAuthError(err, data.error); return; }
+  window.location.href = '/login';
+}
 
-    id         = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id    = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
-    flight_id  = db.Column(db.String(36), db.ForeignKey('flights.id'), nullable=False)
-    passengers = db.Column(db.Integer, default=1)
-    total_usd  = db.Column(db.Float, nullable=False)
-    status     = db.Column(db.String(20), default='pending')  # pending, confirmed, cancelled
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+function showAuthError(el, msg) {
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+}
 
-    # ── Contact details (collected at passenger details step) ─────────────────
-    # Stored on the booking so confirmation emails and admin views have them
-    # without joining to a separate passengers table.
-    contact_email = db.Column(db.String(120), nullable=True, default=None)
-    contact_phone = db.Column(db.String(30),  nullable=True, default=None)
+// ── Extras ────────────────────────────────────────────
+const extraSelections = {};
+let baseFare       = 0;
+let passengerCount = 1;
 
-    # ── Check-in fields ───────────────────────────────────────────────────────
-    # seat_number:      assigned at check-in (e.g. "24A"). Null until checked in.
-    # checked_in:       True once the passenger has completed web check-in.
-    # checkin_opens_at: computed on booking creation — 48 hrs before departure.
-    #                   Stored so queries can filter without joining Flight each time.
-    seat_number      = db.Column(db.String(10), nullable=True,  default=None)
-    checked_in       = db.Column(db.Boolean,    nullable=False, default=False)
-    checkin_opens_at = db.Column(db.DateTime,   nullable=True,  default=None)
+function selectExtra(el, key) {
+  document.querySelectorAll(`.extra-option[data-key="${key}"]`).forEach(o => {
+    o.classList.remove('selected');
+  });
+  el.classList.add('selected');
+  extraSelections[key] = parseFloat(el.dataset.price);
+  updateExtrasTotal();
+}
 
-    payment = db.relationship('Payment', backref='booking', uselist=False)
+function updateExtrasTotal() {
+  const extrasTotal = Object.values(extraSelections).reduce((a, b) => a + b, 0);
+  const total       = baseFare + (extrasTotal * passengerCount);
+  const el          = document.getElementById('extras-total');
+  if (el) el.textContent = `$${total.toFixed(2)}`;
+}
 
-    # ── Helpers ───────────────────────────────────────────────────────────────
+function continueToPassengers(flightId, passengers) {
+  const extrasTotal = Object.values(extraSelections).reduce((a, b) => a + b, 0);
+  const extrasCost  = (extrasTotal * passengers).toFixed(2);
+  window.location.href = `/passengers/${flightId}?passengers=${passengers}&extras_cost=${extrasCost}`;
+}
 
-    @property
-    def checkin_available(self):
-        """True when the check-in window is open and the booking is confirmed."""
-        if self.status != 'confirmed' or self.checked_in:
-            return False
-        now = datetime.utcnow()
-        opens  = self.checkin_opens_at
-        closes = self.flight.departure_time
-        return opens is not None and opens <= now < closes
+(function initExtras() {
+  const totalEl = document.getElementById('extras-total');
+  if (!totalEl) return;
+  baseFare       = parseFloat(totalEl.textContent.replace('$', '')) || 0;
+  passengerCount = parseInt(document.querySelector('.extras-sub')?.textContent.match(/\d+/)?.[0]) || 1;
+  document.querySelectorAll('.extras-section').forEach(section => {
+    const first = section.querySelector('.extra-option');
+    if (first) {
+      first.classList.add('selected');
+      const key   = first.dataset.key;
+      extraSelections[key] = parseFloat(first.dataset.price);
+    }
+  });
+})();
 
-    @property
-    def checkin_status(self):
-        """
-        Human-readable check-in state. Used in templates and the dashboard.
+// ── Payment ───────────────────────────────────────────
+const RATES = {
+  BTC: 0.000015,
+  ETH: 0.00035,
+  SOL: 0.065,
+};
 
-        Returns one of:
-          'checked_in'  — already done
-          'open'        — window is open, action available
-          'not_yet'     — too early (> 48 hrs before departure)
-          'closed'      — past departure
-          'unavailable' — booking not confirmed
-        """
-        if self.checked_in:
-            return 'checked_in'
-        if self.status != 'confirmed':
-            return 'unavailable'
-        now = datetime.utcnow()
-        if now >= self.flight.departure_time:
-            return 'closed'
-        if self.checkin_opens_at and now >= self.checkin_opens_at:
-            return 'open'
-        return 'not_yet'
+let selectedCrypto = null;
 
+function copyAddress(elemId, btn) {
+  const text = document.getElementById(elemId)?.textContent?.trim();
+  if (!text || text === 'Not configured') return;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.classList.add('copied');
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+    }, 2000);
+  });
+}
 
-class Payment(db.Model):
-    __tablename__ = 'payments'
+function selectCrypto(type) {
+  ['BTC', 'ETH', 'SOL'].forEach(c => {
+    const el = document.getElementById(`opt-${c.toLowerCase()}`);
+    if (el) el.className = 'crypto-option';
+    const row = document.getElementById(`wallet-${c.toLowerCase()}`);
+    if (row) row.style.outline = 'none';
+  });
 
-    id            = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    booking_id    = db.Column(db.String(36), db.ForeignKey('bookings.id'), nullable=False)
-    crypto_type   = db.Column(db.String(10), nullable=False)   # BTC, ETH, SOL
-    amount_crypto = db.Column(db.Float, nullable=False)
-    tx_hash       = db.Column(db.String(200), unique=True, nullable=True)
-    status        = db.Column(db.String(20), default='pending')  # pending, confirmed, failed
-    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
-    confirmed_at  = db.Column(db.DateTime, nullable=True)
+  selectedCrypto = type;
+  const el = document.getElementById(`opt-${type.toLowerCase()}`);
+  if (el) el.className = `crypto-option selected-${type.toLowerCase()}`;
 
-class Notification(db.Model):
-    __tablename__ = 'notifications'
+  // Highlight the selected wallet row
+  const row = document.getElementById(`wallet-${type.toLowerCase()}`);
+  if (row) row.style.outline = `2px solid var(--${type.toLowerCase() === 'btc' ? 'btc' : type.toLowerCase() === 'eth' ? 'eth' : 'sol'})`;
 
-    id         = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id    = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
-    booking_id = db.Column(db.String(36), db.ForeignKey('bookings.id'), nullable=True)
-    type       = db.Column(db.String(30), nullable=False)   # payment_pending | payment_confirmed
-    title      = db.Column(db.String(120), nullable=False)
-    body       = db.Column(db.Text, nullable=False)
-    read       = db.Column(db.Boolean, default=False, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+  const totalEl  = document.querySelector('.summary-row.total .summary-val');
+  const totalUsd = totalEl ? parseFloat(totalEl.textContent.replace('$', '')) : 0;
+  const amount   = (totalUsd * RATES[type]).toFixed(6);
 
-    user    = db.relationship('User',    foreign_keys=[user_id])
-    booking = db.relationship('Booking', foreign_keys=[booking_id])
+  const amtEl      = document.getElementById('wallet-amount');
+  const amtDisplay = document.getElementById('wallet-amount-display');
+  const txGroup    = document.getElementById('tx-group');
+  const btnConf    = document.getElementById('btn-confirm');
+
+  if (amtEl)      amtEl.textContent        = `${amount} ${type}`;
+  if (amtDisplay) amtDisplay.style.display = 'flex';
+  if (txGroup)    txGroup.style.display    = 'block';
+  if (btnConf)    btnConf.style.display    = 'block';
+}
+
+async function confirmPayment(bookingId) {
+  const txHash = document.getElementById('tx-hash').value.trim();
+  const err    = document.getElementById('pay-error');
+  const btn    = document.getElementById('btn-confirm');
+
+  if (!selectedCrypto) { showAuthError(err, 'Select a payment method.');  return; }
+  if (!txHash)          { showAuthError(err, 'Paste your transaction hash.'); return; }
+
+  // Disable immediately — prevents double-submit from rapid clicks
+  btn.disabled    = true;
+  btn.textContent = 'Submitting…';
+  err.style.display = 'none';
+
+  const totalEl  = document.querySelector('.summary-row.total .summary-val');
+  const totalUsd = totalEl ? parseFloat(totalEl.textContent.replace('$', '')) : 0;
+  const amount   = (totalUsd * RATES[selectedCrypto]).toFixed(6);
+
+  try {
+    const res  = await fetch(`/pay/${bookingId}/submit`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        crypto_type:   selectedCrypto,
+        tx_hash:       txHash,
+        amount_crypto: parseFloat(amount)
+      })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showAuthError(err, data.error || 'Payment failed.');
+      btn.disabled    = false;
+      btn.textContent = 'Confirm payment';
+      return;
+    }
+    window.location.href = data.pending_url || `/booking/${bookingId}/pending`;
+  } catch (e) {
+    showAuthError(err, 'Network error — please try again.');
+    btn.disabled    = false;
+    btn.textContent = 'Confirm payment';
+  }
+}
+// ── Dashboard ──────────────────────────────────────────
+async function cancelBooking(bookingId) {
+  if (!confirm('Cancel this booking? This cannot be undone.')) return;
+
+  const res  = await fetch(`/booking/${bookingId}/cancel`, { method: 'POST' });
+  const data = await res.json();
+
+  if (!res.ok) { alert(data.error || 'Could not cancel booking.'); return; }
+
+  const card = document.getElementById(`booking-${bookingId}`);
+  if (!card) { location.reload(); return; }
+
+  card.classList.add('booking-cancelled');
+  const statusEl = card.querySelector('.bk-status');
+  if (statusEl) {
+    statusEl.className = 'bk-status bk-status-cancelled';
+    statusEl.textContent = 'Cancelled';
+  }
+  const actions = card.querySelector('.bk-status-row');
+  if (actions) {
+    const links = actions.querySelectorAll('.bk-action-link, .bk-cancel-btn');
+    links.forEach(el => el.remove());
+  }
+}
+
+// ── Passenger details ──────────────────────────────────
+async function submitPassengers(flightId, passengers) {
+  const err = document.getElementById('pax-error');
+
+  const firstNames  = [...document.querySelectorAll('.pax-first')].map(el => el.value.trim());
+  const lastNames   = [...document.querySelectorAll('.pax-last')].map(el => el.value.trim());
+  const passports   = [...document.querySelectorAll('.pax-passport')].map(el => el.value.trim());
+  const email       = document.getElementById('contact-email')?.value.trim();
+  const phone       = document.getElementById('contact-phone')?.value.trim();
+
+  for (let i = 0; i < passengers; i++) {
+    if (!firstNames[i] || !lastNames[i]) {
+      showAuthError(err, `Enter the full name for passenger ${i + 1}.`); return;
+    }
+    if (!passports[i]) {
+      showAuthError(err, `Enter the passport number for passenger ${i + 1}.`); return;
+    }
+  }
+
+  if (!email) { showAuthError(err, 'Enter a contact email address.'); return; }
+
+  const extrasParam = new URLSearchParams(window.location.search).get('extras_cost') || '0';
+
+  const res  = await fetch(`/passengers/${flightId}`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({
+      passengers,
+      extras_cost: parseFloat(extrasParam),
+      contact_email: email,
+      contact_phone: phone,
+      passenger_names: firstNames.map((fn, i) => `${fn} ${lastNames[i]}`)
+    })
+  });
+
+  const data = await res.json();
+  if (!res.ok) { showAuthError(err, data.error || 'Something went wrong.'); return; }
+  window.location.href = `/pay/${data.booking_id}`;
+}
