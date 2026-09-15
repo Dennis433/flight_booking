@@ -370,11 +370,14 @@ def booking_status(booking_id):
     booking = Booking.query.get_or_404(booking_id)
     if booking.user_id != session['user_id']:
         return jsonify({'error': 'Unauthorized'}), 403
-    return jsonify({
+    payload = {
         'status':         booking.status,
         'payment_status': booking.payment.status if booking.payment else None,
         'booking_id':     booking.id
-    })
+    }
+    if booking.status == 'confirmed':
+        payload['confirmation_url'] = url_for('confirmation', booking_id=booking_id)
+    return jsonify(payload)
 
 
 # ─── Payment Routes ────────────────────────────────────────
@@ -406,7 +409,27 @@ def submit_payment(booking_id):
     db.session.add(payment)
     db.session.commit()
 
-    return jsonify({'message': 'Payment submitted, awaiting confirmation', 'payment_id': payment.id}), 201
+    pending_url = url_for('pending_page', booking_id=booking_id)
+    return jsonify({
+        'message':     'Payment submitted, awaiting confirmation',
+        'payment_id':  payment.id,
+        'pending_url': pending_url
+    }), 201
+
+
+# ─── Pending page ──────────────────────────────────────────
+
+@app.route('/booking/<booking_id>/pending')
+def pending_page(booking_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    booking = Booking.query.get_or_404(booking_id)
+    if booking.user_id != session['user_id']:
+        return 'Unauthorized', 403
+    # If already confirmed, skip straight to confirmation
+    if booking.status == 'confirmed':
+        return redirect(url_for('confirmation', booking_id=booking_id))
+    return render_template('pending.html', booking=booking)
 
 
 # ─── Confirmation ──────────────────────────────────────────
