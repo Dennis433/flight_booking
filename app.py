@@ -704,51 +704,114 @@ def api_notifications_mark_read():
     return jsonify({'ok': True})
 
 
-# ─── Support Chat Proxy ────────────────────────────────────
+# ─── Support Chat (Hard-coded Replies) ────────────────────
 
-SUPPORT_SYSTEM = """You are a friendly and helpful customer support assistant for SkyChain — a flight booking platform that accepts cryptocurrency payments.
+# Each entry: (list_of_keywords, reply_string)
+# The first rule whose keywords ALL appear in the lowercased user message wins.
+_SUPPORT_RULES = [
+    # Check-in
+    (["check in", "check-in"],
+     "Online check-in opens 48 hours before departure and closes 1 hour before. "
+     "Head to your dashboard, open the booking, and click Check In — you'll pick your seat "
+     "(rows 1-30, seats A-F) and your boarding pass will be ready instantly after."),
 
-Your personality: warm, concise, and reassuring. Use short paragraphs. Never use bullet-point walls of text. Keep replies under 80 words unless a detailed explanation is truly needed.
+    (["boarding pass"],
+     "Your boarding pass is available right after you complete online check-in. "
+     "Go to your dashboard, open the booking, and tap 'Boarding Pass'. "
+     "Check-in opens 48 hrs before departure and closes 1 hr before."),
 
-== SkyChain Facts ==
+    (["boarding", "gate", "when to arrive"],
+     "Boarding starts 30 minutes before departure — please be at the gate 45 minutes early "
+     "so you don't miss your flight."),
 
-PAYMENTS:
-- Accepted crypto: Bitcoin (BTC), Ethereum (ETH), Solana (SOL)
-- After the user submits their transaction hash, our team manually reviews and confirms it — this usually takes a few minutes, sometimes up to a few hours during busy periods
-- Users get an in-app notification and email as soon as their payment is confirmed
-- If payment is still showing "pending" after 3 hours, advise the user to email support@skychain.io with their booking reference and transaction hash
+    # Payment / crypto
+    (["payment", "confirm", "pending", "how long"],
+     "After you submit your transaction hash, our team manually reviews it — "
+     "this usually takes a few minutes, but can be up to a few hours during busy periods. "
+     "You'll get an in-app notification and email the moment it's confirmed. "
+     "If it's still pending after 3 hours, email support@skychain.io with your booking "
+     "reference and transaction hash."),
 
-BOOKINGS:
-- Each booking has an 8-character reference (shown on the dashboard and e-ticket)
-- To change or cancel, the user must contact us at support@skychain.io with their booking reference — changes depend on availability
-- Cancellations: if requested before check-in opens (48 hrs before departure), a refund may be issued in the original crypto within 3–5 business days after approval
-- No-shows or cancellations after check-in opens are non-refundable
+    (["crypto", "cryptocurrency", "bitcoin", "ethereum", "solana", "btc", "eth", "sol", "accept"],
+     "We accept Bitcoin (BTC), Ethereum (ETH), and Solana (SOL). "
+     "Choose your preferred currency at checkout and send the exact amount shown — "
+     "then paste your transaction hash to confirm."),
 
-CHECK-IN & BOARDING:
-- Online check-in opens exactly 48 hours before departure and closes 1 hour before
-- The user picks their own seat during check-in (up to 30 rows, seats A–F)
-- Boarding pass is available immediately after check-in is complete — accessible from the dashboard
-- Boarding starts 30 minutes before departure; users should be at the gate 45 minutes early
+    # Cancellation / changes
+    (["cancel", "cancell"],
+     "To cancel your booking, email support@skychain.io with your 8-character booking reference. "
+     "If you cancel before check-in opens (48 hrs before departure), a refund in the original "
+     "crypto may be issued within 3-5 business days after approval. "
+     "Cancellations after check-in opens — or no-shows — are non-refundable."),
 
-BAGGAGE:
-- All passengers: 1 carry-on bag up to 7 kg included free
-- Checked baggage is an optional paid extra — added during the booking extras step
-- Oversized or special items (sports equipment, instruments): email support@skychain.io before flying
+    (["change", "modify", "reschedule"],
+     "To change your booking, contact us at support@skychain.io with your 8-character booking "
+     "reference. Changes depend on seat availability and must be requested before check-in opens."),
 
-EMAILS & NOTIFICATIONS:
-- Confirmation emails are sent when payment is confirmed
-- If a user didn't receive one, suggest checking their spam/junk folder
-- All booking activity is also visible in the dashboard under "My bookings"
+    # Refund
+    (["refund", "money back", "reimburs"],
+     "Refunds are possible if you cancel before check-in opens (48 hrs before departure). "
+     "Email support@skychain.io with your booking reference — if approved, the refund is returned "
+     "in the original crypto within 3-5 business days. Late cancellations and no-shows are non-refundable."),
 
-TECHNICAL ISSUES:
-- If the site isn't loading or a booking is stuck, suggest clearing browser cache or trying a different browser
-- For urgent issues, always direct the user to support@skychain.io
+    # Baggage
+    (["baggage", "luggage", "bag", "carry", "suitcase", "kg"],
+     "Every passenger gets 1 carry-on bag up to 7 kg for free. "
+     "Checked baggage is an optional paid extra you can add during the booking extras step. "
+     "For oversized or special items (sports gear, instruments) email support@skychain.io before you fly."),
 
-== Tone Rules ==
-- Never say "I'm just an AI" or "I don't have access to your account"
-- If you can't resolve something, say: "For this I'd recommend emailing support@skychain.io with your booking reference — our team will sort it out quickly."
-- Be empathetic if someone is frustrated about a delayed payment or travel stress
-- Never make up flight details, prices, or policy exceptions you're unsure about"""
+    # Email / confirmation
+    (["confirmation email", "no email", "didn't receive", "did not receive", "email not"],
+     "Confirmation emails go out as soon as your payment is confirmed. "
+     "Please check your spam/junk folder first — it often ends up there. "
+     "All your booking activity is also visible on your dashboard under 'My bookings'."),
+
+    (["email", "notification"],
+     "You'll receive an email notification as soon as your payment is confirmed. "
+     "All booking details are also available on your dashboard anytime."),
+
+    # Technical issues
+    (["not loading", "stuck", "error", "bug", "broken", "technical"],
+     "Sorry to hear you're running into an issue! Try clearing your browser cache or switching "
+     "to a different browser — that fixes most problems. "
+     "If it's still not working, email support@skychain.io and our team will sort it out quickly."),
+
+    # Seat selection
+    (["seat", "seat selection", "choose seat"],
+     "You pick your seat during online check-in, which opens 48 hours before departure. "
+     "We have up to 30 rows with seats A-F available."),
+
+    # Booking reference
+    (["booking reference", "reference number", "booking number"],
+     "Your 8-character booking reference is shown on your dashboard and on your e-ticket. "
+     "You'll need it if you contact us at support@skychain.io for any changes or issues."),
+
+    # Greetings
+    (["hello", "hi", "hey", "good morning", "good afternoon", "good evening"],
+     "👋 Hi there! I'm the SkyChain support assistant. How can I help you today? "
+     "Feel free to ask about payments, check-in, baggage, or anything else."),
+
+    (["thank", "thanks", "thank you"],
+     "You're welcome! Is there anything else I can help you with? ✈️"),
+
+    (["bye", "goodbye", "see you"],
+     "Safe travels! Feel free to come back if you have any more questions. ✈️"),
+]
+
+_FALLBACK_REPLY = (
+    "I'm not sure I have a specific answer for that. "
+    "For the fastest help, email support@skychain.io with your booking reference "
+    "and our team will get back to you promptly."
+)
+
+
+def _hard_coded_reply(user_text: str) -> str:
+    """Return the first matching hard-coded reply, or the fallback."""
+    lower = user_text.lower()
+    for keywords, reply in _SUPPORT_RULES:
+        if all(kw in lower for kw in keywords):
+            return reply
+    return _FALLBACK_REPLY
 
 
 @app.route('/api/support-chat', methods=['POST'])
@@ -758,33 +821,13 @@ def support_chat():
     if not messages:
         return jsonify({'error': 'No messages provided'}), 400
 
-    api_key = os.getenv('ANTHROPIC_API_KEY', '')
-    if not api_key:
-        return jsonify({'reply': 'Support is temporarily unavailable. Please email support@skychain.io for help.'}), 200
-
-    try:
-        resp = httpx.post(
-            'https://api.anthropic.com/v1/messages',
-            headers={
-                'x-api-key':         api_key,
-                'anthropic-version': '2023-06-01',
-                'content-type':      'application/json',
-            },
-            json={
-                'model':      'claude-sonnet-4-6',
-                'max_tokens': 512,
-                'system':     SUPPORT_SYSTEM,
-                'messages':   messages,
-            },
-            timeout=20,
-        )
-        resp.raise_for_status()
-        result = resp.json()
-        reply  = ''.join(b.get('text', '') for b in result.get('content', []))
-        return jsonify({'reply': reply})
-    except Exception as e:
-        print(f'[support-chat] Error: {e}')
-        return jsonify({'reply': 'Sorry, I\'m having trouble connecting right now. Please email support@skychain.io and our team will help you promptly.'}), 200
+    # Use only the latest user message for matching
+    last_user = next(
+        (m['content'] for m in reversed(messages) if m.get('role') == 'user'),
+        ''
+    )
+    reply = _hard_coded_reply(last_user)
+    return jsonify({'reply': reply})
 
 
 # ─── Init ──────────────────────────────────────────────────
