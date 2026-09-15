@@ -2010,7 +2010,8 @@ body {
 .passenger-page {
   display: flex;
   justify-content: center;
-  padding: 3rem 1.5rem 6rem;
+  padding: 96px 1.5rem 120px; /* top: clears 64px navbar; bottom: clears fixed summary bar */
+  min-height: 100vh;
 }
 
 .passenger-card {
