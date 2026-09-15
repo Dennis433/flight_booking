@@ -8,7 +8,7 @@ from markupsafe import Markup
 from config import Config
 from models import db, User, Airport, Flight, Booking, Payment
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 import httpx
 import os
 import re
@@ -115,7 +115,7 @@ class PaymentAdmin(SecureModelView):
     def confirm_payment(self, payment_id):
         payment                = Payment.query.get_or_404(payment_id)
         payment.status         = 'confirmed'
-        payment.confirmed_at   = datetime.utcnow()
+        payment.confirmed_at   = datetime.now(timezone.utc)
         payment.booking.status = 'confirmed'
         db.session.commit()
         send_receipt(payment.booking)
@@ -600,6 +600,66 @@ def boarding_pass(booking_id):
 
     gate = _derive_gate(booking.flight.flight_number)
     return render_template('boarding_pass.html', booking=booking, gate=gate)
+
+
+# ─── Notification API ──────────────────────────────────────
+
+@app.route('/api/notifications')
+def api_notifications():
+    if 'user_id' not in session:
+        return jsonify([])
+    notifications = (
+        Notification.query
+        .filter_by(user_id=session['user_id'])
+        .order_by(Notification.created_at.desc())
+        .limit(30)
+        .all()
+    )
+    return jsonify([{
+        'id':         n.id,
+        'type':       n.type,
+        'title':      n.title,
+        'body':       n.body,
+        'read':       n.read,
+        'booking_id': n.booking_id,
+        'created_at': n.created_at.isoformat() if n.created_at else None
+    } for n in notifications])
+
+
+@app.route('/api/notifications/unread-count')
+def api_notifications_unread_count():
+    if 'user_id' not in session:
+        return jsonify({'count': 0})
+    count = (
+        Notification.query
+        .filter_by(user_id=session['user_id'], read=False)
+        .count()
+    )
+    return jsonify({'count': count})
+
+
+@app.route('/api/notifications/read', methods=['POST'])
+def api_notifications_mark_read():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Login required'}), 401
+    data           = request.get_json(silent=True) or {}
+    notification_id = data.get('id')
+
+    if notification_id:
+        # Mark a single notification read
+        n = Notification.query.filter_by(
+            id=notification_id, user_id=session['user_id']
+        ).first()
+        if n:
+            n.read = True
+    else:
+        # Mark all as read
+        Notification.query.filter_by(
+            user_id=session['user_id'], read=False
+        ).update({'read': True})
+
+    db.session.commit()
+    return jsonify({'ok': True})
 
 
 # ─── Init ──────────────────────────────────────────────────
