@@ -557,28 +557,44 @@ function selectCrypto(type) {
 async function confirmPayment(bookingId) {
   const txHash = document.getElementById('tx-hash').value.trim();
   const err    = document.getElementById('pay-error');
+  const btn    = document.getElementById('btn-confirm');
 
   if (!selectedCrypto) { showAuthError(err, 'Select a payment method.');  return; }
   if (!txHash)          { showAuthError(err, 'Paste your transaction hash.'); return; }
+
+  // Disable immediately — prevents double-submit from rapid clicks
+  btn.disabled    = true;
+  btn.textContent = 'Submitting…';
+  err.style.display = 'none';
 
   const totalEl  = document.querySelector('.summary-row.total .summary-val');
   const totalUsd = totalEl ? parseFloat(totalEl.textContent.replace('$', '')) : 0;
   const amount   = (totalUsd * RATES[selectedCrypto]).toFixed(6);
 
-  const res  = await fetch(`/pay/${bookingId}/submit`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({
-      crypto_type:   selectedCrypto,
-      tx_hash:       txHash,
-      amount_crypto: parseFloat(amount)
-    })
-  });
-  const data = await res.json();
+  try {
+    const res  = await fetch(`/pay/${bookingId}/submit`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        crypto_type:   selectedCrypto,
+        tx_hash:       txHash,
+        amount_crypto: parseFloat(amount)
+      })
+    });
+    const data = await res.json();
 
-  if (!res.ok) { showAuthError(err, data.error || 'Payment failed.'); return; }
-  // Redirect to the pending page — admin must confirm before confirmation is shown
-  window.location.href = data.pending_url || `/booking/${bookingId}/pending`;
+    if (!res.ok) {
+      showAuthError(err, data.error || 'Payment failed.');
+      btn.disabled    = false;
+      btn.textContent = 'Confirm payment';
+      return;
+    }
+    window.location.href = data.pending_url || `/booking/${bookingId}/pending`;
+  } catch (e) {
+    showAuthError(err, 'Network error — please try again.');
+    btn.disabled    = false;
+    btn.textContent = 'Confirm payment';
+  }
 }
 // ── Dashboard ──────────────────────────────────────────
 async function cancelBooking(bookingId) {
