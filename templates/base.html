@@ -353,368 +353,385 @@
     .notif-toast.show { opacity: 1; transform: translateY(0); }
     </style>
     {% endif %}
+
+    <!-- ══════════════════════════════════════════════
+         CUSTOMER SUPPORT WIDGET
+    ══════════════════════════════════════════════ -->
+
+    <!-- FAB Button -->
+    <button class="support-fab" id="support-fab" onclick="toggleSupport()" aria-label="Customer Support">
+      <svg id="support-fab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      <svg id="support-fab-close" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:none">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+      <span class="support-fab-label">Support</span>
+      <span class="support-fab-ping"></span>
+    </button>
+
+    <!-- Chat Panel -->
+    <div class="support-panel" id="support-panel" aria-hidden="true">
+
+      <!-- Header -->
+      <div class="support-header">
+        <div class="support-header-left">
+          <div class="support-avatar">✈</div>
+          <div>
+            <div class="support-title">SkyChain Support</div>
+            <div class="support-status">
+              <span class="support-online-dot"></span>Online · Instant replies
+            </div>
+          </div>
+        </div>
+        <button class="support-close-btn" onclick="toggleSupport()" aria-label="Close">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- FAQ Quick Chips -->
+      <div class="support-faq-chips" id="support-faq-chips">
+        <div class="support-faq-label">Common questions — tap to ask</div>
+        <div class="support-chips-row">
+          <button class="support-chip" onclick="askFaq('How do I check in online?')">🛫 Online check-in</button>
+          <button class="support-chip" onclick="askFaq('How long does payment confirmation take?')">💳 Payment confirmation</button>
+          <button class="support-chip" onclick="askFaq('How do I cancel or change my booking?')">✏️ Change booking</button>
+          <button class="support-chip" onclick="askFaq('What crypto do you accept?')">🪙 Crypto accepted</button>
+          <button class="support-chip" onclick="askFaq('How do I get my boarding pass?')">🎫 Boarding pass</button>
+          <button class="support-chip" onclick="askFaq('What is the refund policy?')">💰 Refund policy</button>
+          <button class="support-chip" onclick="askFaq('What is the baggage allowance?')">🧳 Baggage allowance</button>
+          <button class="support-chip" onclick="askFaq('I did not receive my confirmation email')">📧 No confirmation email</button>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div class="support-messages" id="support-messages">
+        <div class="support-msg support-msg-bot">
+          <div class="support-bubble">
+            👋 Hi! I'm the SkyChain support assistant.<br>
+            Ask me anything about bookings, payments, check-in, or baggage — or tap a topic above.
+          </div>
+          <div class="support-msg-time">Just now</div>
+        </div>
+      </div>
+
+      <!-- Typing indicator -->
+      <div class="support-typing" id="support-typing" style="display:none">
+        <div class="support-bubble support-typing-bubble">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+
+      <!-- Input -->
+      <div class="support-input-row">
+        <input class="support-input" id="support-input" type="text"
+          placeholder="Ask a question…" autocomplete="off"
+          onkeydown="if(event.key==='Enter') sendSupport()">
+        <button class="support-send-btn" onclick="sendSupport()" aria-label="Send">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+
+    </div><!-- /.support-panel -->
+
+    <style>
+    /* ── FAB ─────────────────────────────────────────── */
+    .support-fab {
+      position: fixed;
+      bottom: 1.75rem;
+      right: 1.75rem;
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: linear-gradient(135deg, #2563EB 0%, #7c3aed 100%);
+      color: #fff;
+      border: none;
+      border-radius: 50px;
+      padding: 0.8rem 1.3rem 0.8rem 1rem;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 24px rgba(37,99,235,0.55), 0 0 0 0 rgba(37,99,235,0.35);
+      animation: fab-pulse 2.8s ease-in-out infinite;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .support-fab:hover {
+      transform: translateY(-3px) scale(1.04);
+      box-shadow: 0 10px 36px rgba(37,99,235,0.7);
+      animation: none;
+    }
+    @keyframes fab-pulse {
+      0%,100% { box-shadow: 0 4px 24px rgba(37,99,235,0.55), 0 0 0 0 rgba(37,99,235,0.35); }
+      60%      { box-shadow: 0 4px 24px rgba(37,99,235,0.55), 0 0 0 14px rgba(37,99,235,0); }
+    }
+    .support-fab-label { letter-spacing: 0.01em; }
+    .support-fab-ping {
+      position: absolute;
+      top: -5px; right: -5px;
+      width: 13px; height: 13px;
+      background: #4ade80;
+      border-radius: 50%;
+      border: 2px solid #080B14;
+      animation: ping-blink 2s ease-in-out infinite;
+    }
+    @keyframes ping-blink {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.5; transform: scale(1.25); }
+    }
+
+    /* ── Panel ───────────────────────────────────────── */
+    .support-panel {
+      position: fixed;
+      bottom: 5.5rem;
+      right: 1.75rem;
+      z-index: 499;
+      width: 380px;
+      max-width: calc(100vw - 2rem);
+      max-height: 590px;
+      background: var(--bg-2);
+      border: 1px solid var(--border-h);
+      border-radius: 18px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.65);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: translateY(14px) scale(0.97);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease, transform 0.22s ease;
+    }
+    .support-panel.open {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* Header */
+    .support-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.95rem 1.1rem 0.85rem;
+      background: linear-gradient(135deg, rgba(37,99,235,0.18), rgba(124,58,237,0.12));
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .support-header-left { display: flex; align-items: center; gap: 0.75rem; }
+    .support-avatar {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg, #2563EB, #7c3aed);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.05rem; flex-shrink: 0;
+    }
+    .support-title  { font-size: 0.87rem; font-weight: 700; color: var(--text); }
+    .support-status { font-size: 0.71rem; color: var(--text-3); display: flex; align-items: center; gap: 0.3rem; margin-top: 2px; }
+    .support-online-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: #4ade80;
+      animation: pulse-dot 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .support-close-btn {
+      background: none; border: 1px solid var(--border); border-radius: 8px;
+      width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+      color: var(--text-3); cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .support-close-btn:hover { color: var(--text); border-color: var(--border-h); }
+
+    /* FAQ Chips */
+    .support-faq-chips {
+      padding: 0.8rem 0.9rem 0.7rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .support-faq-label {
+      font-size: 0.67rem; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--text-3); margin-bottom: 0.55rem;
+    }
+    .support-chips-row { display: flex; flex-wrap: wrap; gap: 0.38rem; }
+    .support-chip {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      border-radius: 100px;
+      padding: 0.3rem 0.75rem;
+      font-size: 0.72rem;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .support-chip:hover {
+      background: rgba(37,99,235,0.15);
+      border-color: rgba(37,99,235,0.45);
+      color: var(--text);
+    }
+
+    /* Messages */
+    .support-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      scroll-behavior: smooth;
+    }
+    .support-messages::-webkit-scrollbar { width: 3px; }
+    .support-messages::-webkit-scrollbar-thumb { background: var(--border-h); border-radius: 4px; }
+    .support-msg        { display: flex; flex-direction: column; max-width: 88%; }
+    .support-msg-bot    { align-self: flex-start; align-items: flex-start; }
+    .support-msg-user   { align-self: flex-end;   align-items: flex-end; }
+    .support-bubble {
+      padding: 0.65rem 0.9rem;
+      border-radius: 14px;
+      font-size: 0.81rem;
+      line-height: 1.58;
+      color: var(--text);
+    }
+    .support-msg-bot  .support-bubble { background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .support-msg-user .support-bubble { background: linear-gradient(135deg, #2563EB, #1d4ed8); border-bottom-right-radius: 4px; }
+    .support-msg-time  { font-size: 0.64rem; color: var(--text-3); margin-top: 0.25rem; padding: 0 0.15rem; }
+
+    /* Typing dots */
+    .support-typing { padding: 0 1rem 0.6rem; }
+    .support-typing-bubble { display: inline-flex; align-items: center; gap: 4px; padding: 0.55rem 0.85rem !important; }
+    .support-typing-bubble span {
+      width: 6px; height: 6px;
+      background: var(--text-3); border-radius: 50%;
+      animation: typing-bounce 1.3s ease-in-out infinite;
+    }
+    .support-typing-bubble span:nth-child(2) { animation-delay: 0.2s; }
+    .support-typing-bubble span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing-bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+
+    /* Input */
+    .support-input-row {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.7rem 0.85rem;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      background: var(--bg-2);
+    }
+    .support-input {
+      flex: 1;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.55rem 0.85rem;
+      font-size: 0.81rem;
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .support-input::placeholder { color: var(--text-3); }
+    .support-input:focus { border-color: var(--blue-l); }
+    .support-send-btn {
+      width: 36px; height: 36px;
+      background: var(--blue); border: none; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; cursor: pointer; flex-shrink: 0;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .support-send-btn:hover { background: var(--blue-l); transform: scale(1.06); }
+
+    @media (max-width: 480px) {
+      .support-panel { right: 0.6rem; bottom: 5rem; width: calc(100vw - 1.2rem); }
+      .support-fab   { right: 0.75rem; bottom: 0.75rem; }
+    }
+    </style>
+
+    <script>
+    (function () {
+      let supportOpen = false;
+      let supportHist = [];
+
+      window.toggleSupport = function () {
+        supportOpen = !supportOpen;
+        const panel = document.getElementById('support-panel');
+        const icon  = document.getElementById('support-fab-icon');
+        const close = document.getElementById('support-fab-close');
+        panel.classList.toggle('open', supportOpen);
+        panel.setAttribute('aria-hidden', String(!supportOpen));
+        icon.style.display  = supportOpen ? 'none'  : 'block';
+        close.style.display = supportOpen ? 'block' : 'none';
+        if (supportOpen) {
+          setTimeout(() => document.getElementById('support-input').focus(), 240);
+          const ping = document.querySelector('.support-fab-ping');
+          if (ping) ping.style.display = 'none';
+        }
+      };
+
+      // Close on outside click
+      document.addEventListener('click', e => {
+        if (supportOpen &&
+            !document.getElementById('support-panel').contains(e.target) &&
+            !document.getElementById('support-fab').contains(e.target)) {
+          window.toggleSupport();
+        }
+      });
+
+      window.askFaq = function (question) {
+        document.getElementById('support-input').value = question;
+        document.getElementById('support-faq-chips').style.display = 'none';
+        window.sendSupport();
+      };
+
+      function nowTime() {
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+
+      function appendMsg(text, role) {
+        const msgs = document.getElementById('support-messages');
+        const wrap = document.createElement('div');
+        wrap.className = `support-msg support-msg-${role === 'user' ? 'user' : 'bot'}`;
+        wrap.innerHTML  = `<div class="support-bubble">${text.replace(/\n/g, '<br>')}</div>
+                           <div class="support-msg-time">${nowTime()}</div>`;
+        msgs.appendChild(wrap);
+        msgs.scrollTop = msgs.scrollHeight;
+      }
+
+      window.sendSupport = async function () {
+        const input = document.getElementById('support-input');
+        const text  = input.value.trim();
+        if (!text) return;
+        input.value = '';
+        document.getElementById('support-faq-chips').style.display = 'none';
+
+        appendMsg(text, 'user');
+        supportHist.push({ role: 'user', content: text });
+
+        const typing = document.getElementById('support-typing');
+        typing.style.display = 'block';
+        document.getElementById('support-messages').scrollTop = 99999;
+
+        try {
+          const res   = await fetch('/api/support-chat', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ messages: supportHist })
+          });
+          const data  = await res.json();
+          const reply = data.reply || 'Something went wrong. Please try again.';
+          typing.style.display = 'none';
+          appendMsg(reply, 'bot');
+          supportHist.push({ role: 'assistant', content: reply });
+        } catch (err) {
+          typing.style.display = 'none';
+          appendMsg('Something went wrong. Please email support@skychain.io for help.', 'bot');
+        }
+      };
+    })();
+    </script>
+
 </body>
 </html>
-<!-- ── Customer Support Widget ── -->
-<button class="support-fab" id="support-fab" onclick="toggleSupport()" aria-label="Customer Support">
-  <svg id="support-fab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-  <svg id="support-fab-close" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-  <span class="support-fab-label">Support</span>
-  <span class="support-fab-ping"></span>
-</button>
-
-<div class="support-panel" id="support-panel" aria-hidden="true">
-  <div class="support-header">
-    <div class="support-header-left">
-      <div class="support-avatar">✈</div>
-      <div>
-        <div class="support-title">SkyChain Support</div>
-        <div class="support-status"><span class="support-online-dot"></span>Online · Instant replies</div>
-      </div>
-    </div>
-    <button class="support-close-btn" onclick="toggleSupport()" aria-label="Close">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-  </div>
-
-  <div class="support-faq-chips" id="support-faq-chips">
-    <div class="support-faq-label">Common questions — tap to ask</div>
-    <div class="support-chips-row">
-      <button class="support-chip" onclick="askFaq('How do I check in online?')">🛫 Online check-in</button>
-      <button class="support-chip" onclick="askFaq('How do I cancel or change my booking?')">✏️ Change booking</button>
-      <button class="support-chip" onclick="askFaq('How long does payment confirmation take?')">💳 Payment confirmation</button>
-      <button class="support-chip" onclick="askFaq('What crypto currencies do you accept?')">🪙 Crypto payments</button>
-      <button class="support-chip" onclick="askFaq('How do I get my boarding pass?')">🎫 Boarding pass</button>
-      <button class="support-chip" onclick="askFaq('What is your refund policy?')">💰 Refund policy</button>
-      <button class="support-chip" onclick="askFaq('How many bags can I bring?')">🧳 Baggage allowance</button>
-      <button class="support-chip" onclick="askFaq('I did not receive a confirmation email')">📧 No confirmation email</button>
-    </div>
-  </div>
-
-  <div class="support-messages" id="support-messages">
-    <div class="support-msg support-msg-bot">
-      <div class="support-bubble">👋 Hi! I'm the SkyChain support assistant.<br>Ask me anything about bookings, payments, check-in, or baggage — or pick a topic above.</div>
-      <div class="support-msg-time">Just now</div>
-    </div>
-  </div>
-
-  <div class="support-typing" id="support-typing" style="display:none">
-    <div class="support-bubble support-typing-bubble"><span></span><span></span><span></span></div>
-  </div>
-
-  <div class="support-input-row">
-    <input class="support-input" id="support-input" type="text" placeholder="Ask a question…" autocomplete="off" onkeydown="if(event.key==='Enter')sendSupport()">
-    <button class="support-send-btn" onclick="sendSupport()" aria-label="Send">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-    </button>
-  </div>
-</div>
-
-<style>
-.support-fab {
-  position: fixed;
-  bottom: 1.75rem;
-  right: 1.75rem;
-  z-index: 500;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: linear-gradient(135deg, #2563EB 0%, #7c3aed 100%);
-  color: #fff;
-  border: none;
-  border-radius: 50px;
-  padding: 0.8rem 1.3rem 0.8rem 1rem;
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 4px 24px rgba(37,99,235,0.55), 0 0 0 0 rgba(37,99,235,0.35);
-  animation: fab-pulse 2.8s ease-in-out infinite;
-  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
-}
-.support-fab:hover {
-  transform: translateY(-3px) scale(1.04);
-  box-shadow: 0 10px 36px rgba(37,99,235,0.7);
-  animation: none;
-}
-@keyframes fab-pulse {
-  0%,100% { box-shadow: 0 4px 24px rgba(37,99,235,0.55), 0 0 0 0 rgba(37,99,235,0.35); }
-  60%      { box-shadow: 0 4px 24px rgba(37,99,235,0.55), 0 0 0 12px rgba(37,99,235,0); }
-}
-.support-fab-label { letter-spacing: 0.01em; }
-.support-fab-ping {
-  position: absolute;
-  top: -5px; right: -5px;
-  width: 13px; height: 13px;
-  background: #4ade80;
-  border-radius: 50%;
-  border: 2px solid #080B14;
-  animation: ping-pulse 1.8s ease-in-out infinite;
-}
-@keyframes ping-pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.3);opacity:0.6} }
-
-/* Panel */
-.support-panel {
-  position: fixed;
-  bottom: 5.5rem;
-  right: 1.75rem;
-  z-index: 499;
-  width: 380px;
-  max-width: calc(100vw - 2rem);
-  max-height: 580px;
-  background: var(--bg-2);
-  border: 1px solid var(--border-h);
-  border-radius: 18px;
-  box-shadow: 0 24px 80px rgba(0,0,0,0.65);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transform: translateY(14px) scale(0.97);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.22s ease, transform 0.22s ease;
-}
-.support-panel.open { transform: translateY(0) scale(1); opacity: 1; pointer-events: all; }
-
-/* Header */
-.support-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.95rem 1.1rem 0.85rem;
-  background: linear-gradient(135deg, rgba(37,99,235,0.18) 0%, rgba(124,58,237,0.12) 100%);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.support-header-left { display: flex; align-items: center; gap: 0.75rem; }
-.support-avatar {
-  width: 38px; height: 38px;
-  background: linear-gradient(135deg, #2563EB, #7c3aed);
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.05rem; flex-shrink: 0;
-}
-.support-title { font-size: 0.87rem; font-weight: 700; color: var(--text); }
-.support-status { font-size: 0.71rem; color: var(--text-3); display: flex; align-items: center; gap: 0.3rem; margin-top: 2px; }
-.support-online-dot {
-  width: 6px; height: 6px; border-radius: 50%; background: #4ade80;
-  animation: pulse-dot 1.8s ease-in-out infinite;
-}
-.support-close-btn {
-  background: none; border: 1px solid var(--border); border-radius: 8px;
-  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
-  color: var(--text-3); cursor: pointer; transition: color 0.15s, border-color 0.15s;
-}
-.support-close-btn:hover { color: var(--text); border-color: var(--border-h); }
-
-/* FAQ Chips */
-.support-faq-chips {
-  padding: 0.8rem 0.9rem 0.7rem;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.support-faq-label {
-  font-size: 0.67rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-3);
-  margin-bottom: 0.55rem;
-}
-.support-chips-row { display: flex; flex-wrap: wrap; gap: 0.38rem; }
-.support-chip {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--border);
-  color: var(--text-2);
-  border-radius: 100px;
-  padding: 0.3rem 0.75rem;
-  font-size: 0.72rem;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-  font-family: 'Inter', sans-serif;
-  white-space: nowrap;
-  line-height: 1.4;
-}
-.support-chip:hover { background: rgba(37,99,235,0.15); border-color: rgba(37,99,235,0.45); color: var(--text); }
-
-/* Messages */
-.support-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  scroll-behavior: smooth;
-}
-.support-messages::-webkit-scrollbar { width: 3px; }
-.support-messages::-webkit-scrollbar-thumb { background: var(--border-h); border-radius: 4px; }
-.support-msg { display: flex; flex-direction: column; max-width: 88%; }
-.support-msg-bot  { align-self: flex-start; align-items: flex-start; }
-.support-msg-user { align-self: flex-end;   align-items: flex-end; }
-.support-bubble {
-  padding: 0.65rem 0.9rem;
-  border-radius: 14px;
-  font-size: 0.81rem;
-  line-height: 1.58;
-  color: var(--text);
-}
-.support-msg-bot  .support-bubble { background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
-.support-msg-user .support-bubble { background: linear-gradient(135deg,#2563EB,#1d4ed8); border-bottom-right-radius: 4px; }
-.support-msg-time { font-size: 0.64rem; color: var(--text-3); margin-top: 0.25rem; padding: 0 0.15rem; }
-
-/* Typing */
-.support-typing { padding: 0 1rem 0.6rem; }
-.support-typing-bubble { display: inline-flex; align-items: center; gap: 4px; padding: 0.55rem 0.85rem !important; }
-.support-typing-bubble span {
-  width: 6px; height: 6px;
-  background: var(--text-3);
-  border-radius: 50%;
-  animation: typing-bounce 1.3s ease-in-out infinite;
-}
-.support-typing-bubble span:nth-child(2) { animation-delay: 0.2s; }
-.support-typing-bubble span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes typing-bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
-
-/* Input row */
-.support-input-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.7rem 0.85rem;
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-  background: var(--bg-2);
-}
-.support-input {
-  flex: 1;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0.55rem 0.85rem;
-  font-size: 0.81rem;
-  font-family: 'Inter', sans-serif;
-  color: var(--text);
-  outline: none;
-  transition: border-color 0.15s;
-}
-.support-input::placeholder { color: var(--text-3); }
-.support-input:focus { border-color: var(--blue-l); }
-.support-send-btn {
-  width: 36px; height: 36px;
-  background: var(--blue);
-  border: none;
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  color: #fff;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.15s, transform 0.1s;
-}
-.support-send-btn:hover { background: var(--blue-l); transform: scale(1.06); }
-
-@media (max-width: 480px) {
-  .support-panel { right: 0.6rem; bottom: 5rem; width: calc(100vw - 1.2rem); }
-  .support-fab   { right: 0.75rem; bottom: 0.75rem; }
-}
-</style>
-
-<script>
-(function(){
-  let supportOpen = false;
-  let supportHist = [];
-
-  const SYSTEM = `You are a helpful customer support assistant for SkyChain, a flight booking platform that accepts crypto payments (BTC, ETH, SOL). Answer clearly and concisely in short paragraphs. Be warm and professional.
-
-Key facts:
-- Flights are paid with crypto (Bitcoin, Ethereum, or Solana)
-- After submitting a transaction hash, payment is manually reviewed — usually takes a few minutes to a few hours
-- Online check-in opens 48 hours before departure
-- Boarding passes are available after check-in is complete
-- To change or cancel, contact support with your 8-character booking reference
-- Refunds are sent in the original crypto and take 3–5 business days after approval
-- Baggage: 1 carry-on (7kg) included; checked baggage is added as an extra during booking
-- Confirmation emails may land in spam; users can also check bookings in their dashboard
-- For unresolved issues, email support@skychain.io
-
-Keep replies under 80 words. Use line breaks for readability.`;
-
-  window.toggleSupport = function() {
-    supportOpen = !supportOpen;
-    const panel = document.getElementById('support-panel');
-    const icon  = document.getElementById('support-fab-icon');
-    const close = document.getElementById('support-fab-close');
-    panel.classList.toggle('open', supportOpen);
-    panel.setAttribute('aria-hidden', String(!supportOpen));
-    icon.style.display  = supportOpen ? 'none'  : 'block';
-    close.style.display = supportOpen ? 'block' : 'none';
-    if (supportOpen) {
-      setTimeout(() => document.getElementById('support-input').focus(), 240);
-      const ping = document.querySelector('.support-fab-ping');
-      if (ping) ping.style.display = 'none';
-    }
-  };
-
-  document.addEventListener('click', e => {
-    if (supportOpen &&
-        !document.getElementById('support-panel').contains(e.target) &&
-        !document.getElementById('support-fab').contains(e.target)) {
-      window.toggleSupport();
-    }
-  });
-
-  window.askFaq = function(question) {
-    document.getElementById('support-input').value = question;
-    document.getElementById('support-faq-chips').style.display = 'none';
-    window.sendSupport();
-  };
-
-  function nowTime() {
-    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-
-  function appendMsg(text, role) {
-    const msgs = document.getElementById('support-messages');
-    const wrap = document.createElement('div');
-    wrap.className = `support-msg support-msg-${role === 'user' ? 'user' : 'bot'}`;
-    wrap.innerHTML = `<div class="support-bubble">${text.replace(/\n/g,'<br>')}</div><div class="support-msg-time">${nowTime()}</div>`;
-    msgs.appendChild(wrap);
-    msgs.scrollTop = msgs.scrollHeight;
-  }
-
-  window.sendSupport = async function() {
-    const input = document.getElementById('support-input');
-    const text  = input.value.trim();
-    if (!text) return;
-    input.value = '';
-    document.getElementById('support-faq-chips').style.display = 'none';
-
-    appendMsg(text, 'user');
-    supportHist.push({ role: 'user', content: text });
-
-    const typing = document.getElementById('support-typing');
-    typing.style.display = 'block';
-    document.getElementById('support-messages').scrollTop = 99999;
-
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
-          system: SYSTEM,
-          messages: supportHist
-        })
-      });
-      const data  = await res.json();
-      const reply = (data.content || []).map(b => b.text || '').join('') || 'Sorry, something went wrong. Please try again.';
-      typing.style.display = 'none';
-      appendMsg(reply, 'bot');
-      supportHist.push({ role: 'assistant', content: reply });
-    } catch(err) {
-      typing.style.display = 'none';
-      appendMsg('Sorry, I couldn\'t connect right now.\nPlease email support@skychain.io for help.', 'bot');
-    }
-  };
-})();
-</script>
