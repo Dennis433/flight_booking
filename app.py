@@ -448,6 +448,26 @@ def submit_payment(booking_id):
         status        = 'pending'
     )
     db.session.add(payment)
+
+    try:
+        notif_body = (
+            f'We received your {crypto} payment for flight '
+            f'{booking.flight.flight_number} '
+            f'({booking.flight.origin.iata_code} → {booking.flight.destination.iata_code}). '
+            f'Our team is reviewing it and will confirm shortly.'
+        )
+    except Exception:
+        notif_body = f'We received your {crypto} payment for booking {booking.id[:8].upper()}. Confirmation is in progress.'
+
+    notification = Notification(
+        user_id    = booking.user_id,
+        booking_id = booking_id,
+        type       = 'payment_pending',
+        title      = 'Payment received — under review',
+        body       = notif_body,
+        read       = False
+    )
+    db.session.add(notification)
     db.session.commit()
 
     pending_url = url_for('pending_page', booking_id=booking_id)
