@@ -3,9 +3,10 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
 from flask_admin import AdminIndexView, expose
+from flask_mail import Mail, Message
 from markupsafe import Markup
 from config import Config
-from models import db, User, Airport, Flight, Booking, Payment, Notification
+from models import db, User, Airport, Flight, Booking, Payment
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta, datetime
 import httpx
@@ -17,48 +18,54 @@ app.config.from_object(Config)
 
 db.init_app(app)
 
-@app.context_processor
-def inject_config():
-    return dict(config=app.config)
+# ─── Mail ──────────────────────────────────────────────────
+app.config['MAIL_SERVER']   = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT']     = int(os.getenv('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS']  = True
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', '')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', '')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME', 'noreply@skychain.com')
+
+mail = Mail(app)
 
 
-
-
-# ─── Notification helper ───────────────────────────────────
-
-def create_notification(user_id, booking, ntype):
-    """Create a notification for the user about their booking/payment."""
-    flight = booking.flight
-    route  = f"{flight.origin.iata_code} → {flight.destination.iata_code}"
-
-    if ntype == 'payment_pending':
-        title = f"Payment received — {route}"
-        body  = (
-            f"We've received your {booking.payment.crypto_type} payment of "
-            f"{booking.payment.amount_crypto:.6f} {booking.payment.crypto_type} "
-            f"(${booking.total_usd:.2f}) for booking {booking.id[:8].upper()}. "
-            f"Your transaction is being reviewed and will be confirmed shortly."
-        )
-    elif ntype == 'payment_confirmed':
-        title = f"Booking confirmed — {route}"
-        body  = (
-            f"Your booking {booking.id[:8].upper()} is confirmed! "
-            f"Flight {flight.flight_number} on "
-            f"{flight.departure_time.strftime('%d %b %Y at %H:%M')} UTC. "
-            f"Paid: {booking.payment.amount_crypto:.6f} {booking.payment.crypto_type} "
-            f"(${booking.total_usd:.2f}). Tx: {booking.payment.tx_hash}."
-        )
-    else:
+def send_receipt(booking):
+    """Send e-receipt to booking contact email. Fails silently if not configured."""
+    to = booking.contact_email or (booking.user.email if booking.user else None)
+    if not to or not app.config.get('MAIL_USERNAME'):
         return
 
-    notif = Notification(
-        user_id    = user_id,
-        booking_id = booking.id,
-        type       = ntype,
-        title      = title,
-        body       = body,
-    )
-    db.session.add(notif)
+    flight = booking.flight
+    body   = f"""
+Hello {booking.user.full_name},
+
+Your SkyChain booking is confirmed!
+
+─────────────────────────────
+BOOKING REFERENCE: {booking.id[:8].upper()}
+─────────────────────────────
+Flight:      {flight.flight_number}
+Route:       {flight.origin.iata_code} → {flight.destination.iata_code}
+Departure:   {flight.departure_time.strftime('%d %b %Y %H:%M')} UTC
+Arrival:     {flight.arrival_time.strftime('%d %b %Y %H:%M')} UTC
+Passengers:  {booking.passengers}
+Total paid:  ${booking.total_usd:.2f}
+─────────────────────────────
+
+Check-in opens 48 hours before departure at:
+http://127.0.0.1:5000/checkin/{booking.id}
+
+Thank you for flying with SkyChain.
+"""
+    try:
+        msg = Message(
+            subject = f'SkyChain Booking Confirmed — {booking.id[:8].upper()}',
+            recipients = [to],
+            body = body
+        )
+        mail.send(msg)
+    except Exception as e:
+        print(f'[mail] Failed to send receipt: {e}')
 
 
 # ─── Admin Security ────────────────────────────────────────
@@ -86,6 +93,7 @@ class PaymentAdmin(SecureModelView):
     column_searchable_list = ['tx_hash', 'crypto_type', 'status']
     can_delete             = False
     can_create             = False
+    list_template          = 'admin/payment_list.html'
 
     def _confirm_formatter(view, context, model, name):
         if model.status == 'pending':
@@ -111,15 +119,13 @@ class PaymentAdmin(SecureModelView):
         payment.confirmed_at   = datetime.utcnow()
         payment.booking.status = 'confirmed'
         db.session.commit()
-        create_notification(payment.booking.user_id, payment.booking, 'payment_confirmed')
-        db.session.commit()
+        send_receipt(payment.booking)
         return ('', 204)
 
 
 class BookingAdmin(SecureModelView):
-    column_list            = ['id', 'user_id', 'flight_id', 'passengers', 'total_usd',
-                              'status', 'checked_in', 'contact_email', 'contact_phone', 'created_at']
-    column_searchable_list = ['status', 'id', 'contact_email', 'contact_phone']
+    column_list            = ['id', 'user_id', 'flight_id', 'passengers', 'total_usd', 'status', 'contact_email', 'contact_phone', 'checked_in', 'created_at']
+    column_searchable_list = ['status', 'id', 'contact_email']
     column_filters         = ['status', 'checked_in']
     can_create             = False
 
@@ -137,9 +143,6 @@ class UserAdmin(SecureModelView):
     column_exclude_list    = ['password_hash']
     form_excluded_columns  = ['password_hash', 'bookings']
 
-    # Email is already on User — no extra column needed here.
-    # Contact phone lives on individual bookings, visible in BookingAdmin.
-
 
 # ─── Register Admin ────────────────────────────────────────
 
@@ -149,11 +152,11 @@ admin = Admin(
     index_view=SecureAdminIndex()
 )
 
-admin.add_view(FlightAdmin(Flight,      db.session, name='Flights'))
-admin.add_view(BookingAdmin(Booking,    db.session, name='Bookings'))
-admin.add_view(PaymentAdmin(Payment,    db.session, name='Payments'))
-admin.add_view(UserAdmin(User,          db.session, name='Users'))
-admin.add_view(SecureModelView(Airport, db.session, name='Airports'))
+admin.add_view(FlightAdmin(Flight,      db, name='Flights'))
+admin.add_view(BookingAdmin(Booking,    db, name='Bookings'))
+admin.add_view(PaymentAdmin(Payment,    db, name='Payments'))
+admin.add_view(UserAdmin(User,          db, name='Users'))
+admin.add_view(SecureModelView(Airport, db, name='Airports'))
 
 
 # ─── Admin Login ───────────────────────────────────────────
@@ -316,8 +319,8 @@ def passenger_details(flight_id):
             passengers       = passengers,
             total_usd        = total,
             checkin_opens_at = flight.departure_time - timedelta(hours=48),
-            contact_email    = data.get('contact_email', '').strip() or None,
-            contact_phone    = data.get('contact_phone', '').strip() or None,
+            contact_email    = data.get('contact_email', ''),
+            contact_phone    = data.get('contact_phone', '')
         )
         db.session.add(booking)
 
@@ -385,38 +388,13 @@ def submit_payment(booking_id):
         tx_hash       = tx_hash,
         status        = 'pending'
     )
-    booking.status = 'pending'
     db.session.add(payment)
     db.session.commit()
 
-    create_notification(booking.user_id, booking, 'payment_pending')
-
-    pending_url = url_for('booking_pending', booking_id=booking_id)
-    return jsonify({
-        'message':     'Payment submitted, awaiting confirmation',
-        'payment_id':  payment.id,
-        'pending_url': pending_url
-    }), 201
+    return jsonify({'message': 'Payment submitted, awaiting confirmation', 'payment_id': payment.id}), 201
 
 
-@app.route('/booking/<booking_id>/status')
-def booking_status(booking_id):
-    booking = Booking.query.get_or_404(booking_id)
-    return jsonify({
-        'status':           booking.status,
-        'confirmation_url': url_for('confirmation', booking_id=booking_id) if booking.status == 'confirmed' else None
-    })
-
-
-# ─── Pending / Confirmation ────────────────────────────────
-
-@app.route('/booking/<booking_id>/pending')
-def booking_pending(booking_id):
-    booking = Booking.query.get_or_404(booking_id)
-    # If admin already confirmed while user was navigating, go straight to confirmation
-    if booking.status == 'confirmed':
-        return redirect(url_for('confirmation', booking_id=booking_id))
-    return render_template('pending.html', booking=booking)
+# ─── Confirmation ──────────────────────────────────────────
 
 @app.route('/confirmation/<booking_id>')
 def confirmation(booking_id):
