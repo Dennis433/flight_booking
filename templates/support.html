@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Support — SkyChain{% endblock %}
+{% block content %}
+
+<svg class="stars" xmlns="http://www.w3.org/2000/svg" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></svg>
+
+<section class="support-page">
+  <div class="support-card">
+
+    <div class="support-header">
+      <div class="support-avatar">✈</div>
+      <div>
+        <div class="support-name">SkyChain Support</div>
+        <div class="support-status"><span class="online-dot"></span>Online</div>
+      </div>
+    </div>
+
+    <div class="support-messages" id="messages">
+      <div class="msg msg-bot">
+        <div class="msg-bubble">
+          Hey! 👋 I'm the SkyChain support assistant. What can I help you with today?
+        </div>
+      </div>
+
+      <div class="quick-replies" id="quick-replies">
+        <button onclick="ask('how_book')">How do I book a flight?</button>
+        <button onclick="ask('payment_methods')">What payment methods are accepted?</button>
+        <button onclick="ask('cancel')">How do I cancel a booking?</button>
+        <button onclick="ask('checkin')">How does check-in work?</button>
+        <button onclick="ask('crypto_confirm')">When is my payment confirmed?</button>
+        <button onclick="ask('boarding_pass')">How do I get my boarding pass?</button>
+        <button onclick="ask('baggage')">What is the baggage allowance?</button>
+        <button onclick="ask('refund')">Can I get a refund?</button>
+        <button onclick="ask('change_flight')">Can I change my flight?</button>
+        <button onclick="ask('contact')">Talk to a real person</button>
+      </div>
+    </div>
+
+    <div class="support-input-row">
+      <input type="text" id="support-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendMessage()" />
+      <button onclick="sendMessage()">Send</button>
+    </div>
+
+  </div>
+</section>
+
+<script>
+const REPLIES = {
+  how_book: {
+    q: "How do I book a flight?",
+    a: `Booking a flight on SkyChain is simple:\n\n1. Log in or create an account\n2. Enter your origin, destination, and travel date on the homepage\n3. Select a flight from the results\n4. Choose your extras (seat, baggage, meal)\n5. Fill in passenger details\n6. Pay with Bitcoin, Ethereum, or Solana\n7. Your booking is confirmed once we verify your payment`
+  },
+  payment_methods: {
+    q: "What payment methods are accepted?",
+    a: `SkyChain is a crypto-only platform. We accept:\n\n₿ Bitcoin (BTC)\nΞ Ethereum (ETH)\n◎ Solana (SOL)\n\nNo credit cards, bank transfers, or fiat payments are accepted. This keeps your transactions private and borderless.`
+  },
+  cancel: {
+    q: "How do I cancel a booking?",
+    a: `To cancel a booking:\n\n1. Go to your Dashboard\n2. Find the booking you want to cancel\n3. Click "Cancel booking"\n\nNote: Cancellations are subject to the fare rules of your ticket. Refunds in crypto are processed within 5–10 business days where applicable.`
+  },
+  checkin: {
+    q: "How does check-in work?",
+    a: `Online check-in opens 48 hours before your flight departure.\n\nTo check in:\n1. Go to your Dashboard\n2. Click "Check in" on your booking\n3. Select your preferred seat(s)\n4. Your boarding pass will be available immediately after check-in`
+  },
+  crypto_confirm: {
+    q: "When is my payment confirmed?",
+    a: `After you submit your transaction hash, our team manually verifies it on the blockchain. This typically takes:\n\n• Bitcoin: 1–3 confirmations (~30 mins)\n• Ethereum: 12 confirmations (~3 mins)\n• Solana: Near instant\n\nOnce verified, your booking status changes to Confirmed and you'll receive an email receipt.`
+  },
+  boarding_pass: {
+    q: "How do I get my boarding pass?",
+    a: `Your boarding pass is available after you complete online check-in.\n\n1. Check in via your Dashboard (opens 48hrs before departure)\n2. Select your seat\n3. Your boarding pass will appear — you can screenshot or print it\n\nThe boarding pass shows your flight details, seat number, gate, and boarding time.`
+  },
+  baggage: {
+    q: "What is the baggage allowance?",
+    a: `Baggage allowance depends on what you selected during booking:\n\n• Carry-on only: 1 bag up to 10kg (free)\n• 1 checked bag: up to 23kg (+$35)\n• 2 checked bags: up to 23kg each (+$60)\n• 2 checked bags: up to 32kg each (+$90)\n\nIf you didn't add baggage during booking, contact the airline directly.`
+  },
+  refund: {
+    q: "Can I get a refund?",
+    a: `Refund eligibility depends on your fare type:\n\n• Economy: Non-refundable by default\n• Business: Partially refundable (50% within 48hrs of booking)\n• First Class: Fully refundable up to 24hrs before departure\n\nAll refunds are issued in the same cryptocurrency used for payment. Processing takes 5–10 business days. Contact support to initiate a refund.`
+  },
+  change_flight: {
+    q: "Can I change my flight?",
+    a: `Flight changes are currently not supported through the platform directly.\n\nTo request a change:\n1. Cancel your current booking\n2. Rebook with your preferred flight\n\nNote: Cancellation policies apply. We're working on a self-service change feature — coming soon!`
+  },
+  contact: {
+    q: "Talk to a real person",
+    a: `Our support team is available via email:\n\n📧 support@skychain.com\n\nWe typically respond within 2–4 hours. Please include your booking reference (found in your dashboard) so we can assist you faster.`
+  }
+};
+
+const KEYWORDS = {
+  book: 'how_book', flight: 'how_book', search: 'how_book',
+  pay: 'payment_methods', payment: 'payment_methods', bitcoin: 'payment_methods',
+  crypto: 'payment_methods', eth: 'payment_methods', sol: 'payment_methods',
+  cancel: 'cancel', cancellation: 'cancel', refund: 'refund',
+  checkin: 'checkin', 'check-in': 'checkin', 'check in': 'checkin',
+  boarding: 'boarding_pass', pass: 'boarding_pass',
+  baggage: 'baggage', luggage: 'baggage', bag: 'baggage',
+  confirm: 'crypto_confirm', confirmation: 'crypto_confirm', verified: 'crypto_confirm',
+  change: 'change_flight', modify: 'change_flight',
+  human: 'contact', person: 'contact', agent: 'contact', email: 'contact'
+};
+
+function ask(key) {
+  const reply = REPLIES[key];
+  if (!reply) return;
+  addMessage(reply.q, 'user');
+  hideQuickReplies();
+  setTimeout(() => {
+    addMessage(reply.a, 'bot');
+    showFollowUp();
+  }, 600);
+}
+
+function sendMessage() {
+  const input = document.getElementById('support-input');
+  const text  = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addMessage(text, 'user');
+  hideQuickReplies();
+
+  const lower = text.toLowerCase();
+  const key   = Object.keys(KEYWORDS).find(k => lower.includes(k));
+
+  setTimeout(() => {
+    if (key) {
+      addMessage(REPLIES[KEYWORDS[key]].a, 'bot');
+    } else {
+      addMessage("I'm not sure about that one. Here are some things I can help with:", 'bot');
+      showQuickReplies();
+      return;
+    }
+    showFollowUp();
+  }, 600);
+}
+
+function addMessage(text, who) {
+  const messages = document.getElementById('messages');
+  const div      = document.createElement('div');
+  div.className  = `msg msg-${who}`;
+  const bubble   = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.innerText = text;
+  div.appendChild(bubble);
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function hideQuickReplies() {
+  const qr = document.getElementById('quick-replies');
+  if (qr) qr.style.display = 'none';
+}
+
+function showQuickReplies() {
+  const messages = document.getElementById('messages');
+  const qr       = document.createElement('div');
+  qr.className   = 'quick-replies';
+  qr.id          = 'quick-replies-new';
+  Object.entries(REPLIES).forEach(([key, val]) => {
+    const btn     = document.createElement('button');
+    btn.innerText = val.q;
+    btn.onclick   = () => ask(key);
+    qr.appendChild(btn);
+  });
+  messages.appendChild(qr);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function showFollowUp() {
+  const messages = document.getElementById('messages');
+  const div      = document.createElement('div');
+  div.className  = 'msg msg-bot';
+  div.innerHTML  = `<div class="msg-bubble">Is there anything else I can help you with?
+    <div class="followup-btns">
+      <button onclick="resetChat()">Start over</button>
+      <button onclick="ask('contact')">Contact support</button>
+    </div>
+  </div>`;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function resetChat() {
+  const messages = document.getElementById('messages');
+  messages.innerHTML = `
+    <div class="msg msg-bot">
+      <div class="msg-bubble">Hey! 👋 I'm the SkyChain support assistant. What can I help you with today?</div>
+    </div>`;
+  const qr = document.createElement('div');
+  qr.className = 'quick-replies';
+  qr.id = 'quick-replies';
+  Object.entries(REPLIES).forEach(([key, val]) => {
+    const btn = document.createElement('button');
+    btn.innerText = val.q;
+    btn.onclick = () => ask(key);
+    qr.appendChild(btn);
+  });
+  messages.appendChild(qr);
+  messages.scrollTop = messages.scrollHeight;
+}
+</script>
+
+{% endblock %}
