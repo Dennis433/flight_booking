@@ -19,18 +19,17 @@ app.config.from_object(Config)
 db.init_app(app)
 
 # ─── Mail ──────────────────────────────────────────────────
-app.config['MAIL_SERVER']   = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
-app.config['MAIL_PORT']     = int(os.getenv('MAIL_PORT', 587))
-app.config['MAIL_USE_TLS']  = True
-app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', '')
-app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', '')
+app.config['MAIL_SERVER']         = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT']           = int(os.getenv('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS']        = True
+app.config['MAIL_USERNAME']       = os.getenv('MAIL_USERNAME', '')
+app.config['MAIL_PASSWORD']       = os.getenv('MAIL_PASSWORD', '')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME', 'noreply@skychain.com')
 
 mail = Mail(app)
 
 
 def send_receipt(booking):
-    """Send e-receipt to booking contact email. Fails silently if not configured."""
     to = booking.contact_email or (booking.user.email if booking.user else None)
     if not to or not app.config.get('MAIL_USERNAME'):
         return
@@ -53,15 +52,15 @@ Total paid:  ${booking.total_usd:.2f}
 ─────────────────────────────
 
 Check-in opens 48 hours before departure at:
-http://127.0.0.1:5000/checkin/{booking.id}
+https://flight-booking-z1gc.onrender.com/checkin/{booking.id}
 
 Thank you for flying with SkyChain.
 """
     try:
         msg = Message(
-            subject = f'SkyChain Booking Confirmed — {booking.id[:8].upper()}',
+            subject    = f'SkyChain Booking Confirmed — {booking.id[:8].upper()}',
             recipients = [to],
-            body = body
+            body       = body
         )
         mail.send(msg)
     except Exception as e:
@@ -360,6 +359,22 @@ def book_flight(flight_id):
     db.session.commit()
 
     return jsonify({'booking_id': booking.id, 'total_usd': total}), 201
+
+
+# ─── Booking Status ────────────────────────────────────────
+
+@app.route('/booking/<booking_id>/status')
+def booking_status(booking_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Login required'}), 401
+    booking = Booking.query.get_or_404(booking_id)
+    if booking.user_id != session['user_id']:
+        return jsonify({'error': 'Unauthorized'}), 403
+    return jsonify({
+        'status':         booking.status,
+        'payment_status': booking.payment.status if booking.payment else None,
+        'booking_id':     booking.id
+    })
 
 
 # ─── Payment Routes ────────────────────────────────────────
