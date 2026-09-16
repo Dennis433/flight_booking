@@ -322,6 +322,133 @@
   </div>
 </footer>
 
+<!-- ── Recommended Destinations ───────────────────────── -->
+<section class="rec-section">
+  <div class="rec-inner">
+    <h2 class="rec-heading">Recommended by SkyChain</h2>
+
+    <div class="rec-tabs">
+      <button class="rec-tab active" onclick="switchTab('popular')">Popular Destinations</button>
+      <button class="rec-tab" onclick="switchTab('routes')">Popular Routes</button>
+      <button class="rec-tab" onclick="switchTab('budget')">Budget Picks</button>
+      <button class="rec-tab" onclick="switchTab('crypto')">Crypto-Friendly Cities</button>
+      <button class="rec-tab" onclick="switchTab('beach')">Beach Getaways</button>
+    </div>
+
+    <div class="rec-grid" id="rec-grid"></div>
+  </div>
+</section>
+
+<style>
+.rec-section {
+  background: var(--surface, #0d0f1a);
+  border-top: 1px solid rgba(255,255,255,0.07);
+  padding: 2.5rem 0 3rem;
+}
+.rec-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+.rec-heading {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text, #f0f0f0);
+  margin-bottom: 1.1rem;
+}
+.rec-tabs {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.4rem;
+}
+.rec-tab {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-3, #aaa);
+  border-radius: 20px;
+  padding: 0.38rem 1rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.rec-tab:hover { border-color: rgba(255,255,255,0.3); color: var(--text, #f0f0f0); }
+.rec-tab.active {
+  background: var(--text, #f0f0f0);
+  color: #0d0f1a;
+  border-color: transparent;
+  font-weight: 600;
+}
+.rec-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.55rem 1.2rem;
+}
+.rec-link {
+  color: #6c9fff;
+  font-size: 0.82rem;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0.25rem 0;
+  transition: color 0.15s;
+}
+.rec-link:hover { color: #a8c8ff; text-decoration: underline; }
+@media (max-width: 700px) {
+  .rec-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+
+<script>
+const REC_DATA = {
+  popular: [
+    "Flights to Dubai", "Flights to London", "Flights to New York",
+    "Flights to Paris", "Flights to Toronto", "Flights to Amsterdam",
+    "Flights to Istanbul", "Flights to Los Angeles", "Flights to Frankfurt",
+    "Flights to Johannesburg"
+  ],
+  routes: [
+    "Lagos to London", "Abuja to Dubai", "Lagos to New York",
+    "Abuja to Amsterdam", "Lagos to Toronto", "Abuja to Istanbul",
+    "Lagos to Paris", "Abuja to Frankfurt", "Lagos to Atlanta",
+    "Abuja to Doha"
+  ],
+  budget: [
+    "Cheap Flights to Accra", "Cheap Flights to Nairobi",
+    "Cheap Flights to Cairo", "Cheap Flights to Addis Ababa",
+    "Cheap Flights to Casablanca", "Cheap Flights to Dakar",
+    "Cheap Flights to Dar es Salaam", "Cheap Flights to Kinshasa",
+    "Cheap Flights to Luanda", "Cheap Flights to Kigali"
+  ],
+  crypto: [
+    "Flights to Zug", "Flights to Singapore", "Flights to Miami",
+    "Flights to Lisbon", "Flights to Tallinn", "Flights to Seoul",
+    "Flights to El Salvador", "Flights to Ras Al Khaimah",
+    "Flights to Hong Kong", "Flights to Lugano"
+  ],
+  beach: [
+    "Flights to Bali", "Flights to Zanzibar", "Flights to Maldives",
+    "Flights to Cancun", "Flights to Phuket", "Flights to Santorini",
+    "Flights to Mauritius", "Flights to Cape Verde",
+    "Flights to Seychelles", "Flights to Tenerife"
+  ]
+};
+
+function switchTab(key) {
+  document.querySelectorAll('.rec-tab').forEach((t, i) => {
+    t.classList.toggle('active', Object.keys(REC_DATA)[i] === key);
+  });
+  document.getElementById('rec-grid').innerHTML = REC_DATA[key]
+    .map(label => `<a class="rec-link" href="#">${label}</a>`)
+    .join('');
+}
+
+switchTab('popular');
+</script>
+
+
 <style>
 /* ── Hero additions ─────────────────────────────────── */
 .hero-eyebrow {
