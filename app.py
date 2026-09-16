@@ -6,7 +6,7 @@ from flask_admin import AdminIndexView, expose
 from flask_mail import Mail, Message
 from markupsafe import Markup
 from config import Config
-from models import db, User, Airport, Flight, Booking, Payment
+from models import db, User, Airport, Flight, Booking, Payment, Notification
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta, datetime
 import httpx
@@ -27,6 +27,25 @@ app.config['MAIL_PASSWORD']       = os.getenv('MAIL_PASSWORD', '')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME', 'noreply@skychain.com')
 
 mail = Mail(app)
+
+
+def create_notification(user_id, booking, ntype):
+    titles = {
+        'payment_pending':   'Payment received — awaiting confirmation',
+        'payment_confirmed': 'Booking confirmed! ✓',
+    }
+    bodies = {
+        'payment_pending':   f'Your payment for flight {booking.flight.flight_number} has been received and is under review.',
+        'payment_confirmed': f'Your booking ({booking.id[:8].upper()}) is confirmed. Check-in opens 48 hours before departure.',
+    }
+    notif = Notification(
+        user_id    = user_id,
+        booking_id = booking.id,
+        type       = ntype,
+        title      = titles.get(ntype, 'Update on your booking'),
+        body       = bodies.get(ntype, ''),
+    )
+    db.session.add(notif)
 
 
 def send_receipt(booking):
@@ -398,6 +417,10 @@ def submit_payment(booking_id):
         status        = 'pending'
     )
     db.session.add(payment)
+    db.session.flush()
+
+    booking.status = 'pending'
+    create_notification(booking.user_id, booking, 'payment_pending')
     db.session.commit()
 
     return jsonify({
