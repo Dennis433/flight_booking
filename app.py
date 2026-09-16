@@ -92,7 +92,7 @@ class PaymentAdmin(SecureModelView):
     column_searchable_list = ['tx_hash', 'crypto_type', 'status']
     can_delete             = False
     can_create             = False
-    list_template          = 'admin/payment_confirm.html'
+    list_template          = 'admin/payment_list.html'
 
     def _confirm_formatter(view, context, model, name):
         if model.status == 'pending':
@@ -151,11 +151,11 @@ admin = Admin(
     index_view=SecureAdminIndex()
 )
 
-admin.add_view(FlightAdmin(Flight,      db, name='Flights'))
-admin.add_view(BookingAdmin(Booking,    db, name='Bookings'))
-admin.add_view(PaymentAdmin(Payment,    db, name='Payments'))
-admin.add_view(UserAdmin(User,          db, name='Users'))
-admin.add_view(SecureModelView(Airport, db, name='Airports'))
+admin.add_view(FlightAdmin(Flight,      db.session, name='Flights'))
+admin.add_view(BookingAdmin(Booking,    db.session, name='Bookings'))
+admin.add_view(PaymentAdmin(Payment,    db.session, name='Payments'))
+admin.add_view(UserAdmin(User,          db.session, name='Users'))
+admin.add_view(SecureModelView(Airport, db.session, name='Airports'))
 
 
 # ─── Admin Login ───────────────────────────────────────────
