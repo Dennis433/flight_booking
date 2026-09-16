@@ -75,7 +75,7 @@ function setupAutocomplete(inputId, dropdownId) {
     clearTimeout(timer);
     delete input.dataset.iata;
     input.classList.remove('ac-invalid');
-    lastSearchKey = '';   // form changed — allow re-search
+    lastSearchKey = '';
     const q = input.value.trim();
     if (q.length < 2) { close(); return; }
 
@@ -113,11 +113,9 @@ function setupAutocomplete(inputId, dropdownId) {
     }
   });
 
-  // Attempt to resolve the field from the current result set.
-  // Called on blur (after 150ms) and synchronously by searchFlights before it reads dataset.iata.
   function tryResolve() {
-    if (input.dataset.iata) return true;       // already resolved
-    if (!input.value.trim()) return false;     // empty — let searchFlights handle the message
+    if (input.dataset.iata) return true;
+    if (!input.value.trim()) return false;
 
     const q = input.value.trim().toUpperCase();
     const exactIata = results.find(r => r.iata === q);
@@ -127,12 +125,9 @@ function setupAutocomplete(inputId, dropdownId) {
     return false;
   }
 
-  // Expose on the element so searchFlights can call it before reading dataset.iata
   input._tryResolve = tryResolve;
 
   input.addEventListener('blur', () => {
-    // Only attempt resolution while results aren't shown yet
-    // (avoids spurious re-resolution when user clicks filter pills)
     setTimeout(() => {
       close();
       if (!input.dataset.iata) tryResolve();
@@ -140,15 +135,13 @@ function setupAutocomplete(inputId, dropdownId) {
   });
 }
 
-// Init autocomplete on index page
 setupAutocomplete('origin', 'origin-dropdown');
 setupAutocomplete('destination', 'destination-dropdown');
 
-// ── Search ────────────────────────────────────────────
 // ── Search + Filter/Sort ──────────────────────────────
-let allFlights      = [];
-let paxCount        = 1;
-let lastSearchKey  = '';   // set on search, cleared on input change
+let allFlights    = [];
+let paxCount      = 1;
+let lastSearchKey = '';
 
 async function searchFlights() {
   const originInput = document.getElementById('origin');
@@ -157,21 +150,18 @@ async function searchFlights() {
   paxCount          = Math.max(1, parseInt(document.getElementById('passengers').value) || 1);
   const resultsEl   = document.getElementById('results');
 
-  // Synchronously resolve any unresolved-but-resolvable fields before reading iata
   originInput?._tryResolve?.();
   destInput?._tryResolve?.();
 
   const origin      = originInput?.dataset.iata;
   const destination = destInput?.dataset.iata;
 
-  // Distinguish "never touched" (value empty) from "typed but unresolved"
   if (!origin) {
     const msg = originInput?.value.trim()
       ? 'Please select an origin airport from the dropdown.'
       : 'Please enter an origin airport.';
     originInput?.classList.add('ac-invalid');
     showError(resultsEl, msg);
-    resultsEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     originInput?.focus(); return;
   }
   if (!destination) {
@@ -180,18 +170,16 @@ async function searchFlights() {
       : 'Please enter a destination airport.';
     destInput?.classList.add('ac-invalid');
     showError(resultsEl, msg);
-    resultsEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     destInput?.focus(); return;
   }
 
-  // Deduplicate: ignore if this exact search already ran (cleared on input change)
   const searchKey = `${origin}|${destination}|${date}|${paxCount}`;
   if (searchKey === lastSearchKey) return;
   lastSearchKey = searchKey;
 
   resultsEl.innerHTML = `<div class="state-empty">
     <div class="loading-dots"><span></span><span></span><span></span></div>
-    <p>Searching flights\u2026</p>
+    <p>Searching flights…</p>
   </div>`;
 
   try {
@@ -202,16 +190,11 @@ async function searchFlights() {
     if (!data.length) { showError(resultsEl, 'No flights found for that route.'); return; }
 
     allFlights = data;
-    try {
-      renderFiltersAndResults();
-      document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch (renderErr) {
-      console.error('renderFiltersAndResults threw:', renderErr);
-      showError(resultsEl, 'Results loaded but could not be displayed. Check console for details.');
-    }
+    renderFiltersAndResults();
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   } catch (e) {
-    lastSearchKey = '';   // allow retry after error
+    lastSearchKey = '';
     showError(resultsEl, 'Something went wrong. Try again.');
   }
 }
@@ -313,11 +296,11 @@ function resetFilters() {
 }
 
 function applyFilters() {
-  const sort    = document.querySelector('#sort-pills .pill.active')?.dataset.sort   || 'price';
-  const cabin   = document.querySelector('#cabin-pills .pill.active')?.dataset.cabin || 'all';
-  const time    = document.querySelector('#time-pills .pill.active')?.dataset.time   || 'any';
-  const maxPx   = parseFloat(document.getElementById('price-slider')?.value) || Infinity;
-  const list    = document.getElementById('results-list');
+  const sort  = document.querySelector('#sort-pills .pill.active')?.dataset.sort   || 'price';
+  const cabin = document.querySelector('#cabin-pills .pill.active')?.dataset.cabin || 'all';
+  const time  = document.querySelector('#time-pills .pill.active')?.dataset.time   || 'any';
+  const maxPx = parseFloat(document.getElementById('price-slider')?.value) || Infinity;
+  const list  = document.getElementById('results-list');
   if (!list) return;
 
   let filtered = allFlights.filter(f => {
@@ -385,7 +368,6 @@ function flightCard(f, passengers) {
   `;
   return card;
 }
-
 
 async function bookFlight(flightId, passengers) {
   const res  = await fetch(`/book/${flightId}`, {
@@ -495,7 +477,7 @@ function continueToPassengers(flightId, passengers) {
     const first = section.querySelector('.extra-option');
     if (first) {
       first.classList.add('selected');
-      const key   = first.dataset.key;
+      const key        = first.dataset.key;
       extraSelections[key] = parseFloat(first.dataset.price);
     }
   });
@@ -525,17 +507,16 @@ function copyAddress(elemId, btn) {
 
 function selectCrypto(type) {
   ['BTC', 'ETH', 'SOL'].forEach(c => {
-    const el = document.getElementById(`opt-${c.toLowerCase()}`);
+    const el  = document.getElementById(`opt-${c.toLowerCase()}`);
     if (el) el.className = 'crypto-option';
     const row = document.getElementById(`wallet-${c.toLowerCase()}`);
     if (row) row.style.outline = 'none';
   });
 
   selectedCrypto = type;
-  const el = document.getElementById(`opt-${type.toLowerCase()}`);
+  const el  = document.getElementById(`opt-${type.toLowerCase()}`);
   if (el) el.className = `crypto-option selected-${type.toLowerCase()}`;
 
-  // Highlight the selected wallet row
   const row = document.getElementById(`wallet-${type.toLowerCase()}`);
   if (row) row.style.outline = `2px solid var(--${type.toLowerCase() === 'btc' ? 'btc' : type.toLowerCase() === 'eth' ? 'eth' : 'sol'})`;
 
@@ -562,7 +543,6 @@ async function confirmPayment(bookingId) {
   if (!selectedCrypto) { showAuthError(err, 'Select a payment method.');  return; }
   if (!txHash)          { showAuthError(err, 'Paste your transaction hash.'); return; }
 
-  // Disable immediately — prevents double-submit from rapid clicks
   btn.disabled    = true;
   btn.textContent = 'Submitting…';
   err.style.display = 'none';
@@ -596,7 +576,8 @@ async function confirmPayment(bookingId) {
     btn.textContent = 'Confirm payment';
   }
 }
-// ── Dashboard ──────────────────────────────────────────
+
+// ── Dashboard ─────────────────────────────────────────
 async function cancelBooking(bookingId) {
   if (!confirm('Cancel this booking? This cannot be undone.')) return;
 
@@ -611,25 +592,24 @@ async function cancelBooking(bookingId) {
   card.classList.add('booking-cancelled');
   const statusEl = card.querySelector('.bk-status');
   if (statusEl) {
-    statusEl.className = 'bk-status bk-status-cancelled';
+    statusEl.className   = 'bk-status bk-status-cancelled';
     statusEl.textContent = 'Cancelled';
   }
   const actions = card.querySelector('.bk-status-row');
   if (actions) {
-    const links = actions.querySelectorAll('.bk-action-link, .bk-cancel-btn');
-    links.forEach(el => el.remove());
+    actions.querySelectorAll('.bk-action-link, .bk-cancel-btn').forEach(el => el.remove());
   }
 }
 
-// ── Passenger details ──────────────────────────────────
+// ── Passenger details ─────────────────────────────────
 async function submitPassengers(flightId, passengers) {
   const err = document.getElementById('pax-error');
 
-  const firstNames  = [...document.querySelectorAll('.pax-first')].map(el => el.value.trim());
-  const lastNames   = [...document.querySelectorAll('.pax-last')].map(el => el.value.trim());
-  const passports   = [...document.querySelectorAll('.pax-passport')].map(el => el.value.trim());
-  const email       = document.getElementById('contact-email')?.value.trim();
-  const phone       = document.getElementById('contact-phone')?.value.trim();
+  const firstNames = [...document.querySelectorAll('.pax-first')].map(el => el.value.trim());
+  const lastNames  = [...document.querySelectorAll('.pax-last')].map(el => el.value.trim());
+  const passports  = [...document.querySelectorAll('.pax-passport')].map(el => el.value.trim());
+  const email      = document.getElementById('contact-email')?.value.trim();
+  const phone      = document.getElementById('contact-phone')?.value.trim();
 
   for (let i = 0; i < passengers; i++) {
     if (!firstNames[i] || !lastNames[i]) {
@@ -644,14 +624,13 @@ async function submitPassengers(flightId, passengers) {
 
   const extrasParam = new URLSearchParams(window.location.search).get('extras_cost') || '0';
 
-  const res  = await fetch(`/passengers/${flightId}`, {
+  // ── KEY FIX: pass passengers count in the query string so app.py reads it correctly ──
+  const res = await fetch(`/passengers/${flightId}?passengers=${passengers}&extras_cost=${extrasParam}`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({
-      passengers,
-      extras_cost: parseFloat(extrasParam),
-      contact_email: email,
-      contact_phone: phone,
+      contact_email:   email,
+      contact_phone:   phone,
       passenger_names: firstNames.map((fn, i) => `${fn} ${lastNames[i]}`)
     })
   });
