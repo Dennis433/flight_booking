@@ -682,7 +682,6 @@
 
       window.askFaq = function (question) {
         document.getElementById('support-input').value = question;
-        document.getElementById('support-faq-chips').style.display = 'none';
         window.sendSupport();
       };
 
@@ -783,8 +782,6 @@
         const text  = input.value.trim();
         if (!text) return;
         input.value = '';
-        document.getElementById('support-faq-chips').style.display = 'none';
-
         appendMsg(text, 'user');
 
         const typing = document.getElementById('support-typing');
