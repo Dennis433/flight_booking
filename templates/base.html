@@ -295,6 +295,32 @@
 
     refreshBadge();
 
+    // Always poll every 15 s so the badge stays fresh regardless of
+    // whether Supabase Realtime / table replication is enabled.
+    let _lastCount = 0;
+    setInterval(async () => {
+        try {
+            const res  = await fetch('/api/notifications/unread-count');
+            const data = await res.json();
+            const badge = document.getElementById('notif-badge');
+            if (data.count > 0) {
+                badge.textContent = data.count > 9 ? '9+' : data.count;
+                badge.style.display = 'flex';
+                // If count grew, show a toast for the newest notification
+                if (data.count > _lastCount) {
+                    const nr = await fetch('/api/notifications');
+                    const items = await nr.json();
+                    if (items.length && !items[0].read) showNotifToast(items[0].title);
+                    if (notifOpen) loadNotifications();
+                }
+            } else {
+                badge.style.display = 'none';
+            }
+            _lastCount = data.count;
+        } catch {}
+    }, 15000);
+
+    // Also wire up Supabase Realtime for instant push when replication IS enabled
     if (SUPABASE_URL && SUPABASE_ANON_KEY && USER_ID) {
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -306,16 +332,11 @@
                 table:  'notifications',
                 filter: `user_id=eq.${USER_ID}`
             }, payload => {
-                // New notification arrived — refresh badge and panel
                 refreshBadge();
                 if (notifOpen) loadNotifications();
-                // Show a brief toast
                 showNotifToast(payload.new.title);
             })
             .subscribe();
-    } else {
-        // Fallback: poll every 30s if Supabase config missing
-        setInterval(refreshBadge, 30000);
     }
 
     function showNotifToast(title) {
