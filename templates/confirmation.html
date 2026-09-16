@@ -7,9 +7,15 @@
 <section class="confirmation-page">
   <div class="confirmation-card">
 
-    <div class="confirm-icon">✓</div>
+    <div class="confirm-icon">
+      <svg class="check-ring" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle class="check-circle" cx="32" cy="32" r="30"/>
+        <circle class="check-arc" cx="32" cy="32" r="30" transform="rotate(-90 32 32)"/>
+        <polyline class="check-tick" points="20,33 28,41 44,24"/>
+      </svg>
+    </div>
     <h2>Booking confirmed</h2>
-    <p class="confirm-sub">Your e-ticket is ready. Safe travels.</p>
+    <p class="confirm-sub">Your e-ticket is ready below. Safe travels.</p>
 
     <!-- E-ticket -->
     <div class="eticket">
