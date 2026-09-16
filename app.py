@@ -134,20 +134,29 @@ class PaymentAdmin(SecureModelView):
     @expose('/confirm/<payment_id>', methods=['POST'])
     def confirm_payment(self, payment_id):
         from datetime import timezone
-        payment                = Payment.query.get_or_404(payment_id)
-        payment.status         = 'confirmed'
-        payment.confirmed_at   = datetime.now(timezone.utc)
-        payment.booking.status = 'confirmed'
+        try:
+            payment                = Payment.query.get_or_404(payment_id)
+            booking                = payment.booking
+            payment.status         = 'confirmed'
+            payment.confirmed_at   = datetime.now(timezone.utc)
+            booking.status         = 'confirmed'
 
-        # Create the in-app notification before committing so everything
-        # lands in one transaction. send_receipt() also commits internally
-        # which was causing the session to detach before the notification fired.
-        booking = payment.booking
-        create_notification(booking.user_id, booking, 'payment_confirmed')
-        db.session.commit()
+            if not booking.user_id:
+                print(f'[confirm] WARNING: booking {booking.id} has no user_id — skipping notification')
+            else:
+                create_notification(booking.user_id, booking, 'payment_confirmed')
+                print(f'[confirm] Notification queued for user {booking.user_id}, booking {booking.id}')
 
-        send_receipt(booking)
-        return ('', 204)
+            db.session.commit()
+            print(f'[confirm] Payment {payment_id} committed successfully')
+
+            send_receipt(booking)
+            return ('', 204)
+        except Exception as e:
+            db.session.rollback()
+            print(f'[confirm] ERROR confirming payment {payment_id}: {e}')
+            import traceback; traceback.print_exc()
+            return (str(e), 500)
 
 
 class BookingAdmin(SecureModelView):
@@ -600,6 +609,81 @@ def booking_pending(booking_id):
     # submit on Render (cookie not always carried across the redirect).
     booking = Booking.query.get_or_404(booking_id)
     return render_template('pending.html', booking=booking)
+
+
+# ─── Notification API ──────────────────────────────────────
+
+@app.route('/api/notifications')
+def api_notifications():
+    """Return all notifications for the logged-in user, newest first."""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify([])
+
+    notifs = (
+        Notification.query
+        .filter_by(user_id=user_id)
+        .order_by(Notification.created_at.desc())
+        .limit(50)
+        .all()
+    )
+
+    def fmt_time(dt):
+        from datetime import timezone
+        now   = datetime.now(timezone.utc)
+        delta = now - (dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt)
+        secs  = int(delta.total_seconds())
+        if secs < 60:
+            return 'just now'
+        if secs < 3600:
+            return f'{secs // 60}m ago'
+        if secs < 86400:
+            return f'{secs // 3600}h ago'
+        return f'{secs // 86400}d ago'
+
+    return jsonify([{
+        'id':         n.id,
+        'type':       n.type,
+        'title':      n.title,
+        'body':       n.body,
+        'read':       n.read,
+        'booking_id': n.booking_id,
+        'created_at': fmt_time(n.created_at),
+    } for n in notifs])
+
+
+@app.route('/api/notifications/unread-count')
+def api_notifications_unread_count():
+    """Return the count of unread notifications for the badge."""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'count': 0})
+
+    count = Notification.query.filter_by(user_id=user_id, read=False).count()
+    return jsonify({'count': count})
+
+
+@app.route('/api/notifications/read', methods=['POST'])
+def api_notifications_mark_read():
+    """Mark one notification (by id) or all notifications as read."""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'ok': False}), 401
+
+    data = request.get_json(silent=True) or {}
+    notif_id = data.get('id')
+
+    if notif_id:
+        # Mark a single notification read (only if it belongs to this user)
+        notif = Notification.query.filter_by(id=notif_id, user_id=user_id).first()
+        if notif:
+            notif.read = True
+    else:
+        # Mark ALL notifications for this user as read
+        Notification.query.filter_by(user_id=user_id, read=False).update({'read': True})
+
+    db.session.commit()
+    return jsonify({'ok': True})
 
 
 # ─── Init ──────────────────────────────────────────────────
