@@ -6,9 +6,9 @@ from flask_admin import AdminIndexView, expose
 from flask_mail import Mail, Message
 from markupsafe import Markup
 from config import Config
-from models import db, User, Airport, Flight, Booking, Payment, Notification
+from models import db, User, Airport, Flight, Booking, Payment
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import timedelta, datetime, timezone
+from datetime import timedelta, datetime
 import httpx
 import os
 import re
@@ -92,7 +92,7 @@ class PaymentAdmin(SecureModelView):
     column_searchable_list = ['tx_hash', 'crypto_type', 'status']
     can_delete             = False
     can_create             = False
-    list_template          = 'admin/payment_list.html'
+    list_template          = 'admin/payment_confirm.html'
 
     def _confirm_formatter(view, context, model, name):
         if model.status == 'pending':
@@ -115,32 +115,10 @@ class PaymentAdmin(SecureModelView):
     def confirm_payment(self, payment_id):
         payment                = Payment.query.get_or_404(payment_id)
         payment.status         = 'confirmed'
-        payment.confirmed_at   = datetime.now(timezone.utc)
+        payment.confirmed_at   = datetime.utcnow()
         payment.booking.status = 'confirmed'
-
-        booking = payment.booking
-        try:
-            notif_body = (
-                f'Your flight {booking.flight.flight_number} '
-                f'({booking.flight.origin.iata_code} → {booking.flight.destination.iata_code}) '
-                f'on {booking.flight.departure_time.strftime("%d %b %Y")} is confirmed. '
-                f'Ref: {booking.id[:8].upper()}'
-            )
-        except Exception:
-            notif_body = f'Your booking {booking.id[:8].upper()} has been confirmed.'
-
-        notification = Notification(
-            user_id    = booking.user_id,
-            booking_id = booking.id,
-            type       = 'payment_confirmed',
-            title      = 'Booking confirmed ✓',
-            body       = notif_body,
-            read       = False
-        )
-        db.session.add(notification)
         db.session.commit()
-
-        send_receipt(booking)
+        send_receipt(payment.booking)
         return ('', 204)
 
 
@@ -298,8 +276,8 @@ def search():
         'origin_city':   f.origin.city,
         'destination':   f.destination.iata_code,
         'dest_city':     f.destination.city,
-        'departure':     f.departure_time.isoformat(),
-        'arrival':       f.arrival_time.isoformat(),
+        'departure':     f.departure_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'arrival':       f.arrival_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
         'price_usd':     f.price_usd,
         'seats':         f.seats_available,
         'cabin':         f.cabin_class
@@ -331,7 +309,7 @@ def passenger_details(flight_id):
 
     if request.method == 'POST':
         data        = request.get_json()
-        extras_cost = float(data.get('extras_cost', 0))
+        extras_cost = float(request.args.get('extras_cost', 0))
         total       = (flight.price_usd * passengers) + extras_cost
 
         booking = Booking(
@@ -368,19 +346,7 @@ def book_flight(flight_id):
     if flight.seats_available < passengers:
         return jsonify({'error': 'Not enough seats'}), 400
 
-    total = flight.price_usd * passengers
-
-    booking = Booking(
-        user_id          = session['user_id'],
-        flight_id        = flight_id,
-        passengers       = passengers,
-        total_usd        = total,
-        checkin_opens_at = flight.departure_time - timedelta(hours=48)
-    )
-    db.session.add(booking)
-    db.session.commit()
-
-    return jsonify({'booking_id': booking.id, 'total_usd': total}), 201
+    return jsonify({'booking_id': None, 'flight_id': flight_id, 'passengers': passengers}), 200
 
 
 # ─── Booking Status ────────────────────────────────────────
@@ -392,14 +358,11 @@ def booking_status(booking_id):
     booking = Booking.query.get_or_404(booking_id)
     if booking.user_id != session['user_id']:
         return jsonify({'error': 'Unauthorized'}), 403
-    payload = {
+    return jsonify({
         'status':         booking.status,
         'payment_status': booking.payment.status if booking.payment else None,
         'booking_id':     booking.id
-    }
-    if booking.status == 'confirmed':
-        payload['confirmation_url'] = url_for('confirmation', booking_id=booking_id)
-    return jsonify(payload)
+    })
 
 
 # ─── Payment Routes ────────────────────────────────────────
@@ -416,29 +379,10 @@ def submit_payment(booking_id):
     data    = request.get_json()
 
     crypto  = data.get('crypto_type', '').upper()
-    tx_hash = data.get('tx_hash', '').strip()
+    tx_hash = data.get('tx_hash')
 
     if crypto not in ['BTC', 'ETH', 'SOL']:
         return jsonify({'error': 'Unsupported crypto'}), 400
-
-    if not tx_hash:
-        return jsonify({'error': 'Transaction hash is required'}), 400
-
-    # If this booking already has a payment, just redirect — don't create another.
-    # Happens when the user hits submit twice or refreshes mid-flight.
-    if booking.payment:
-        pending_url = url_for('pending_page', booking_id=booking_id)
-        return jsonify({
-            'message':     'Payment already submitted',
-            'payment_id':  booking.payment.id,
-            'pending_url': pending_url
-        }), 200
-
-    # Reject a tx hash that's already used by any other payment.
-    # This catches copy-paste mistakes and protects the unique constraint.
-    existing_tx = Payment.query.filter_by(tx_hash=tx_hash).first()
-    if existing_tx:
-        return jsonify({'error': 'This transaction hash has already been used. Please check your hash and try again.'}), 409
 
     payment = Payment(
         booking_id    = booking_id,
@@ -448,49 +392,13 @@ def submit_payment(booking_id):
         status        = 'pending'
     )
     db.session.add(payment)
-
-    try:
-        notif_body = (
-            f'We received your {crypto} payment for flight '
-            f'{booking.flight.flight_number} '
-            f'({booking.flight.origin.iata_code} → {booking.flight.destination.iata_code}). '
-            f'Our team is reviewing it and will confirm shortly.'
-        )
-    except Exception:
-        notif_body = f'We received your {crypto} payment for booking {booking.id[:8].upper()}. Confirmation is in progress.'
-
-    notification = Notification(
-        user_id    = booking.user_id,
-        booking_id = booking_id,
-        type       = 'payment_pending',
-        title      = 'Payment received — under review',
-        body       = notif_body,
-        read       = False
-    )
-    db.session.add(notification)
     db.session.commit()
 
-    pending_url = url_for('pending_page', booking_id=booking_id)
     return jsonify({
         'message':     'Payment submitted, awaiting confirmation',
         'payment_id':  payment.id,
-        'pending_url': pending_url
+        'pending_url': f'/booking/{booking_id}/pending'
     }), 201
-
-
-# ─── Pending page ──────────────────────────────────────────
-
-@app.route('/booking/<booking_id>/pending')
-def pending_page(booking_id):
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    booking = Booking.query.get_or_404(booking_id)
-    if booking.user_id != session['user_id']:
-        return 'Unauthorized', 403
-    # If already confirmed, skip straight to confirmation
-    if booking.status == 'confirmed':
-        return redirect(url_for('confirmation', booking_id=booking_id))
-    return render_template('pending.html', booking=booking)
 
 
 # ─── Confirmation ──────────────────────────────────────────
@@ -535,6 +443,13 @@ def cancel_booking(booking_id):
 def boardingtime_filter(dt):
     boarding = dt - timedelta(minutes=30)
     return boarding.strftime('%H:%M')
+
+
+# ─── Support ───────────────────────────────────────────────
+
+@app.route('/support')
+def support():
+    return render_template('support.html')
 
 
 # ─── Web Check-in ──────────────────────────────────────────
@@ -644,190 +559,16 @@ def boarding_pass(booking_id):
     return render_template('boarding_pass.html', booking=booking, gate=gate)
 
 
-# ─── Notification API ──────────────────────────────────────
+# ─── Pending ───────────────────────────────────────────────
 
-@app.route('/api/notifications')
-def api_notifications():
+@app.route('/booking/<booking_id>/pending')
+def booking_pending(booking_id):
     if 'user_id' not in session:
-        return jsonify([])
-    notifications = (
-        Notification.query
-        .filter_by(user_id=session['user_id'])
-        .order_by(Notification.created_at.desc())
-        .limit(30)
-        .all()
-    )
-    return jsonify([{
-        'id':         n.id,
-        'type':       n.type,
-        'title':      n.title,
-        'body':       n.body,
-        'read':       n.read,
-        'booking_id': n.booking_id,
-        'created_at': n.created_at.strftime('%-d %b, %H:%M') if n.created_at else ''
-    } for n in notifications])
-
-
-@app.route('/api/notifications/unread-count')
-def api_notifications_unread_count():
-    if 'user_id' not in session:
-        return jsonify({'count': 0})
-    count = (
-        Notification.query
-        .filter_by(user_id=session['user_id'], read=False)
-        .count()
-    )
-    return jsonify({'count': count})
-
-
-@app.route('/api/notifications/read', methods=['POST'])
-def api_notifications_mark_read():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Login required'}), 401
-    data           = request.get_json(silent=True) or {}
-    notification_id = data.get('id')
-
-    if notification_id:
-        # Mark a single notification read
-        n = Notification.query.filter_by(
-            id=notification_id, user_id=session['user_id']
-        ).first()
-        if n:
-            n.read = True
-    else:
-        # Mark all as read
-        Notification.query.filter_by(
-            user_id=session['user_id'], read=False
-        ).update({'read': True})
-
-    db.session.commit()
-    return jsonify({'ok': True})
-
-
-# ─── Support Chat (Hard-coded Replies) ────────────────────
-
-# Each entry: (list_of_keywords, reply_string)
-# The first rule whose keywords ALL appear in the lowercased user message wins.
-_SUPPORT_RULES = [
-    # Check-in
-    (["check in", "check-in"],
-     "Online check-in opens 48 hours before departure and closes 1 hour before. "
-     "Head to your dashboard, open the booking, and click Check In — you'll pick your seat "
-     "(rows 1-30, seats A-F) and your boarding pass will be ready instantly after."),
-
-    (["boarding pass"],
-     "Your boarding pass is available right after you complete online check-in. "
-     "Go to your dashboard, open the booking, and tap 'Boarding Pass'. "
-     "Check-in opens 48 hrs before departure and closes 1 hr before."),
-
-    (["boarding", "gate", "when to arrive"],
-     "Boarding starts 30 minutes before departure — please be at the gate 45 minutes early "
-     "so you don't miss your flight."),
-
-    # Payment / crypto
-    (["payment", "confirm", "pending", "how long"],
-     "After you submit your transaction hash, our team manually reviews it — "
-     "this usually takes a few minutes, but can be up to a few hours during busy periods. "
-     "You'll get an in-app notification and email the moment it's confirmed. "
-     "If it's still pending after 3 hours, email support@skychain.io with your booking "
-     "reference and transaction hash."),
-
-    (["crypto", "cryptocurrency", "bitcoin", "ethereum", "solana", "btc", "eth", "sol", "accept"],
-     "We accept Bitcoin (BTC), Ethereum (ETH), and Solana (SOL). "
-     "Choose your preferred currency at checkout and send the exact amount shown — "
-     "then paste your transaction hash to confirm."),
-
-    # Cancellation / changes
-    (["cancel", "cancell"],
-     "To cancel your booking, email support@skychain.io with your 8-character booking reference. "
-     "If you cancel before check-in opens (48 hrs before departure), a refund in the original "
-     "crypto may be issued within 3-5 business days after approval. "
-     "Cancellations after check-in opens — or no-shows — are non-refundable."),
-
-    (["change", "modify", "reschedule"],
-     "To change your booking, contact us at support@skychain.io with your 8-character booking "
-     "reference. Changes depend on seat availability and must be requested before check-in opens."),
-
-    # Refund
-    (["refund", "money back", "reimburs"],
-     "Refunds are possible if you cancel before check-in opens (48 hrs before departure). "
-     "Email support@skychain.io with your booking reference — if approved, the refund is returned "
-     "in the original crypto within 3-5 business days. Late cancellations and no-shows are non-refundable."),
-
-    # Baggage
-    (["baggage", "luggage", "bag", "carry", "suitcase", "kg"],
-     "Every passenger gets 1 carry-on bag up to 7 kg for free. "
-     "Checked baggage is an optional paid extra you can add during the booking extras step. "
-     "For oversized or special items (sports gear, instruments) email support@skychain.io before you fly."),
-
-    # Email / confirmation
-    (["confirmation email", "no email", "didn't receive", "did not receive", "email not"],
-     "Confirmation emails go out as soon as your payment is confirmed. "
-     "Please check your spam/junk folder first — it often ends up there. "
-     "All your booking activity is also visible on your dashboard under 'My bookings'."),
-
-    (["email", "notification"],
-     "You'll receive an email notification as soon as your payment is confirmed. "
-     "All booking details are also available on your dashboard anytime."),
-
-    # Technical issues
-    (["not loading", "stuck", "error", "bug", "broken", "technical"],
-     "Sorry to hear you're running into an issue! Try clearing your browser cache or switching "
-     "to a different browser — that fixes most problems. "
-     "If it's still not working, email support@skychain.io and our team will sort it out quickly."),
-
-    # Seat selection
-    (["seat", "seat selection", "choose seat"],
-     "You pick your seat during online check-in, which opens 48 hours before departure. "
-     "We have up to 30 rows with seats A-F available."),
-
-    # Booking reference
-    (["booking reference", "reference number", "booking number"],
-     "Your 8-character booking reference is shown on your dashboard and on your e-ticket. "
-     "You'll need it if you contact us at support@skychain.io for any changes or issues."),
-
-    # Greetings
-    (["hello", "hi", "hey", "good morning", "good afternoon", "good evening"],
-     "👋 Hi there! I'm the SkyChain support assistant. How can I help you today? "
-     "Feel free to ask about payments, check-in, baggage, or anything else."),
-
-    (["thank", "thanks", "thank you"],
-     "You're welcome! Is there anything else I can help you with? ✈️"),
-
-    (["bye", "goodbye", "see you"],
-     "Safe travels! Feel free to come back if you have any more questions. ✈️"),
-]
-
-_FALLBACK_REPLY = (
-    "I'm not sure I have a specific answer for that. "
-    "For the fastest help, email support@skychain.io with your booking reference "
-    "and our team will get back to you promptly."
-)
-
-
-def _hard_coded_reply(user_text: str) -> str:
-    """Return the first matching hard-coded reply, or the fallback."""
-    lower = user_text.lower()
-    for keywords, reply in _SUPPORT_RULES:
-        if all(kw in lower for kw in keywords):
-            return reply
-    return _FALLBACK_REPLY
-
-
-@app.route('/api/support-chat', methods=['POST'])
-def support_chat():
-    data     = request.get_json(silent=True) or {}
-    messages = data.get('messages', [])
-    if not messages:
-        return jsonify({'error': 'No messages provided'}), 400
-
-    # Use only the latest user message for matching
-    last_user = next(
-        (m['content'] for m in reversed(messages) if m.get('role') == 'user'),
-        ''
-    )
-    reply = _hard_coded_reply(last_user)
-    return jsonify({'reply': reply})
+        return redirect(url_for('login'))
+    booking = Booking.query.get_or_404(booking_id)
+    if booking.user_id != session['user_id']:
+        return 'Unauthorized', 403
+    return render_template('pending.html', booking=booking)
 
 
 # ─── Init ──────────────────────────────────────────────────
