@@ -125,23 +125,23 @@
       </div>
     </div>
 
-    <!-- Summary bar -->
-    <div class="extras-summary">
-      <div class="extras-summary-left">
-        <div class="extras-base">
-          Base fare · ${{ "%.2f"|format(flight.price_usd) }} × {{ passengers }}
-        </div>
-        <div class="extras-total-label">Total</div>
-        <div class="extras-total" id="extras-total">
-          ${{ "%.2f"|format(flight.price_usd * passengers|int) }}
-        </div>
-      </div>
-      <button class="btn-continue" onclick="continueToPassengers('{{ flight.id }}', {{ passengers }})">
-        Continue
-      </button>
-    </div>
-
   </div>
 </section>
+
+<!-- Sticky bottom bar -->
+<div class="extras-summary">
+  <div class="extras-summary-left">
+    <div class="extras-base">
+      Base fare · ${{ "%.2f"|format(flight.price_usd) }} × {{ passengers }}
+    </div>
+    <div class="extras-total-label">Total</div>
+    <div class="extras-total" id="extras-total">
+      ${{ "%.2f"|format(flight.price_usd * passengers|int) }}
+    </div>
+  </div>
+  <button class="btn-continue" onclick="continueToPassengers('{{ flight.id }}', {{ passengers }})">
+    Continue →
+  </button>
+</div>
 
 {% endblock %}
