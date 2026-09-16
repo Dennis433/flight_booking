@@ -30,8 +30,14 @@ mail = Mail(app)
 
 
 def send_receipt(booking):
+    # Always fire the in-app notification regardless of email config
+    if hasattr(booking, 'payment') and booking.payment:
+        create_notification(booking.user_id, booking, 'payment_confirmed')
+        db.session.commit()
+
     to = booking.contact_email or (booking.user.email if booking.user else None)
     if not to or not app.config.get('MAIL_USERNAME'):
+        print(f'[mail] Skipping email — MAIL_USERNAME not configured. Notification sent in-app.')
         return
 
     flight = booking.flight
