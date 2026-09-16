@@ -83,4 +83,107 @@
   </div>
 </section>
 
+<style>
+/* ── Page header ─────────────────────────────────────── */
+.extras-header {
+  margin-bottom: 2rem;
+}
+
+.extras-header h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin: 0.5rem 0 0.35rem;
+}
+
+.extras-sub {
+  font-size: 0.875rem;
+  color: var(--text-2);
+  margin: 0;
+}
+
+/* ── Summary bar ─────────────────────────────────────── */
+.extras-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2rem;
+  padding: 1.25rem 1.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  gap: 1.5rem;
+}
+
+.extras-summary-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.extras-base {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.extras-total-label {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  margin-top: 0.25rem;
+}
+
+.extras-total {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+/* ── Continue to Payment button ──────────────────────── */
+.btn-continue {
+  padding: 0.95rem 2rem;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  flex-shrink: 0;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+
+.btn-continue:hover {
+  background: var(--blue-l);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+}
+
+.btn-continue:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* ── Mobile ──────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .extras-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .btn-continue {
+    width: 100%;
+    text-align: center;
+  }
+}
+</style>
+
 {% endblock %}
