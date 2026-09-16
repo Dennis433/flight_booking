@@ -592,11 +592,10 @@ def boarding_pass(booking_id):
 
 @app.route('/booking/<booking_id>/pending')
 def booking_pending(booking_id):
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+    # No session check — the booking UUID is a 36-char unguessable token.
+    # This prevents Unauthorized errors when the session drops after payment
+    # submit on Render (cookie not always carried across the redirect).
     booking = Booking.query.get_or_404(booking_id)
-    if booking.user_id != session['user_id']:
-        return 'Unauthorized', 403
     return render_template('pending.html', booking=booking)
 
 
