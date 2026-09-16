@@ -1,147 +1,547 @@
 {% extends "base.html" %}
-{% block title %}Extras — SkyChain{% endblock %}
+{% block title %}Customize · SkyChain{% endblock %}
 {% block content %}
 
 <svg class="stars" xmlns="http://www.w3.org/2000/svg" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></svg>
 
-<section class="extras-page">
-  <div class="extras-card">
+<div class="ex-shell">
 
-    <div class="extras-header">
-      <a href="/" class="back-link">← Back to search</a>
-      <h2>Customize your flight</h2>
-      <p class="extras-sub">{{ flight.origin.iata_code }} → {{ flight.destination.iata_code }} · {{ flight.departure_time.strftime('%d %b %Y') }} · {{ passengers }} passenger{{ 's' if passengers|int > 1 }}</p>
-    </div>
+  <!-- Left: flight summary strip -->
+  <aside class="ex-aside">
+    <a href="/" class="ex-back">← Search</a>
 
-    <!-- Seat selection -->
-    <div class="extras-section">
-      <div class="extras-section-title">
-        <span class="extras-icon">💺</span>
-        <div>
-          <div class="extras-label">Seat preference</div>
-          <div class="extras-desc">Choose where you sit</div>
+    <div class="ex-flight-card">
+      <div class="ex-route">
+        <div class="ex-airport">
+          <span class="ex-iata">{{ flight.origin.iata_code }}</span>
+          <span class="ex-city">{{ flight.origin.city }}</span>
+        </div>
+        <div class="ex-arrow">
+          <svg width="48" height="12" viewBox="0 0 48 12" fill="none">
+            <line x1="0" y1="6" x2="40" y2="6" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+            <path d="M36 2l8 4-8 4" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" fill="none"/>
+          </svg>
+        </div>
+        <div class="ex-airport ex-airport-right">
+          <span class="ex-iata">{{ flight.destination.iata_code }}</span>
+          <span class="ex-city">{{ flight.destination.city }}</span>
         </div>
       </div>
-      <div class="extras-options">
-        <div class="extra-option" data-key="seat" data-price="0" onclick="selectExtra(this, 'seat')">
-          <div class="extra-opt-name">No preference</div>
-          <div class="extra-opt-price">Free</div>
+
+      <div class="ex-meta-row">
+        <div class="ex-meta-item">
+          <span class="ex-meta-label">Date</span>
+          <span class="ex-meta-val">{{ flight.departure_time.strftime('%d %b %Y') }}</span>
         </div>
-        <div class="extra-option" data-key="seat" data-price="15" onclick="selectExtra(this, 'seat')">
-          <div class="extra-opt-name">Window seat</div>
-          <div class="extra-opt-price">+$15</div>
+        <div class="ex-meta-item">
+          <span class="ex-meta-label">Flight</span>
+          <span class="ex-meta-val">{{ flight.flight_number }}</span>
         </div>
-        <div class="extra-option" data-key="seat" data-price="15" onclick="selectExtra(this, 'seat')">
-          <div class="extra-opt-name">Aisle seat</div>
-          <div class="extra-opt-price">+$15</div>
+        <div class="ex-meta-item">
+          <span class="ex-meta-label">Passengers</span>
+          <span class="ex-meta-val">{{ passengers }}</span>
         </div>
-        <div class="extra-option" data-key="seat" data-price="45" onclick="selectExtra(this, 'seat')">
-          <div class="extra-opt-name">Extra legroom</div>
-          <div class="extra-opt-price">+$45</div>
+        <div class="ex-meta-item">
+          <span class="ex-meta-label">Cabin</span>
+          <span class="ex-meta-val">{{ flight.cabin_class | capitalize }}</span>
         </div>
+      </div>
+    </div>
+
+    <div class="ex-price-block">
+      <div class="ex-price-line">
+        <span class="ex-price-desc">Base fare × {{ passengers }}</span>
+        <span class="ex-price-amt">${{ "%.2f"|format(flight.price_usd * passengers|int) }}</span>
+      </div>
+      <div class="ex-price-line ex-extras-line" id="extras-line" style="display:none">
+        <span class="ex-price-desc">Extras</span>
+        <span class="ex-price-amt" id="extras-amount">$0.00</span>
+      </div>
+      <div class="ex-price-divider"></div>
+      <div class="ex-price-total-row">
+        <span>Total</span>
+        <span class="ex-total" id="extras-total">${{ "%.2f"|format(flight.price_usd * passengers|int) }}</span>
+      </div>
+    </div>
+
+    <button class="ex-cta" onclick="continueToPassengers('{{ flight.id }}', {{ passengers }})">
+      Continue to passenger details
+    </button>
+  </aside>
+
+  <!-- Right: extras selection -->
+  <main class="ex-main">
+    <h1 class="ex-heading">Customize your trip</h1>
+    <p class="ex-sub">Selections apply to all {{ passengers }} passenger{{ 's' if passengers|int > 1 }}</p>
+
+    <!-- Seat -->
+    <div class="ex-group">
+      <div class="ex-group-header">
+        <div class="ex-group-icon">💺</div>
+        <div>
+          <div class="ex-group-title">Seat preference</div>
+          <div class="ex-group-hint">Choose where you sit on the plane</div>
+        </div>
+      </div>
+      <div class="ex-opts">
+        <label class="ex-opt ex-opt-selected">
+          <input type="radio" name="seat" value="0" checked onchange="selectExtra(this, 'seat', 0)">
+          <span class="ex-opt-name">No preference</span>
+          <span class="ex-opt-price">Free</span>
+        </label>
+        <label class="ex-opt">
+          <input type="radio" name="seat" value="15" onchange="selectExtra(this, 'seat', 15)">
+          <span class="ex-opt-name">Window seat</span>
+          <span class="ex-opt-price">+$15</span>
+        </label>
+        <label class="ex-opt">
+          <input type="radio" name="seat" value="15" onchange="selectExtra(this, 'seat', 15)">
+          <span class="ex-opt-name">Aisle seat</span>
+          <span class="ex-opt-price">+$15</span>
+        </label>
+        <label class="ex-opt">
+          <input type="radio" name="seat" value="45" onchange="selectExtra(this, 'seat', 45)">
+          <span class="ex-opt-name">Extra legroom</span>
+          <span class="ex-opt-price">+$45</span>
+        </label>
       </div>
     </div>
 
     <!-- Baggage -->
-    <div class="extras-section">
-      <div class="extras-section-title">
-        <span class="extras-icon">🧳</span>
+    <div class="ex-group">
+      <div class="ex-group-header">
+        <div class="ex-group-icon">🧳</div>
         <div>
-          <div class="extras-label">Checked baggage</div>
-          <div class="extras-desc">Per passenger</div>
+          <div class="ex-group-title">Checked baggage</div>
+          <div class="ex-group-hint">Per passenger, each way</div>
         </div>
       </div>
-      <div class="extras-options">
-        <div class="extra-option" data-key="baggage" data-price="0" onclick="selectExtra(this, 'baggage')">
-          <div class="extra-opt-name">Carry-on only</div>
-          <div class="extra-opt-price">Free</div>
-        </div>
-        <div class="extra-option" data-key="baggage" data-price="35" onclick="selectExtra(this, 'baggage')">
-          <div class="extra-opt-name">1 bag · 23kg</div>
-          <div class="extra-opt-price">+$35</div>
-        </div>
-        <div class="extra-option" data-key="baggage" data-price="60" onclick="selectExtra(this, 'baggage')">
-          <div class="extra-opt-name">2 bags · 23kg</div>
-          <div class="extra-opt-price">+$60</div>
-        </div>
-        <div class="extra-option" data-key="baggage" data-price="90" onclick="selectExtra(this, 'baggage')">
-          <div class="extra-opt-name">2 bags · 32kg</div>
-          <div class="extra-opt-price">+$90</div>
-        </div>
+      <div class="ex-opts">
+        <label class="ex-opt ex-opt-selected">
+          <input type="radio" name="baggage" value="0" checked onchange="selectExtra(this, 'baggage', 0)">
+          <span class="ex-opt-name">Carry-on only</span>
+          <span class="ex-opt-price">Free</span>
+        </label>
+        <label class="ex-opt">
+          <input type="radio" name="baggage" value="35" onchange="selectExtra(this, 'baggage', 35)">
+          <span class="ex-opt-name">1 bag · 23 kg</span>
+          <span class="ex-opt-price">+$35</span>
+        </label>
+        <label class="ex-opt">
+          <input type="radio" name="baggage" value="60" onchange="selectExtra(this, 'baggage', 60)">
+          <span class="ex-opt-name">2 bags · 23 kg</span>
+          <span class="ex-opt-price">+$60</span>
+        </label>
+        <label class="ex-opt">
+          <input type="radio" name="baggage" value="90" onchange="selectExtra(this, 'baggage', 90)">
+          <span class="ex-opt-name">2 bags · 32 kg</span>
+          <span class="ex-opt-price">+$90</span>
+        </label>
       </div>
     </div>
 
     <!-- Meal -->
-    <div class="extras-section">
-      <div class="extras-section-title">
-        <span class="extras-icon">🍽️</span>
+    <div class="ex-group">
+      <div class="ex-group-header">
+        <div class="ex-group-icon">🍽️</div>
         <div>
-          <div class="extras-label">Meal preference</div>
-          <div class="extras-desc">Special dietary options available</div>
+          <div class="ex-group-title">Meal preference</div>
+          <div class="ex-group-hint">Special dietary options at no extra cost</div>
         </div>
       </div>
-      <div class="extras-options">
-        <div class="extra-option" data-key="meal" data-price="0" onclick="selectExtra(this, 'meal')">
-          <div class="extra-opt-name">Standard meal</div>
-          <div class="extra-opt-price">Free</div>
-        </div>
-        <div class="extra-option" data-key="meal" data-price="0" onclick="selectExtra(this, 'meal')">
-          <div class="extra-opt-name">Vegetarian</div>
-          <div class="extra-opt-price">Free</div>
-        </div>
-        <div class="extra-option" data-key="meal" data-price="0" onclick="selectExtra(this, 'meal')">
-          <div class="extra-opt-name">Vegan</div>
-          <div class="extra-opt-price">Free</div>
-        </div>
-        <div class="extra-option" data-key="meal" data-price="0" onclick="selectExtra(this, 'meal')">
-          <div class="extra-opt-name">Halal</div>
-          <div class="extra-opt-price">Free</div>
-        </div>
+      <div class="ex-opts">
+        <label class="ex-opt ex-opt-selected">
+          <input type="radio" name="meal" value="0" checked onchange="selectExtra(this, 'meal', 0)">
+          <span class="ex-opt-name">Standard meal</span>
+          <span class="ex-opt-price">Free</span>
+        </label>
+        <label class="ex-opt">
+          <input type="radio" name="meal" value="0" onchange="selectExtra(this, 'meal', 0)">
+          <span class="ex-opt-name">Vegetarian</span>
+          <span class="ex-opt-price">Free</span>
+        </label>
+        <label class="ex-opt">
+          <input type="radio" name="meal" value="0" onchange="selectExtra(this, 'meal', 0)">
+          <span class="ex-opt-name">Vegan</span>
+          <span class="ex-opt-price">Free</span>
+        </label>
+        <label class="ex-opt">
+          <input type="radio" name="meal" value="0" onchange="selectExtra(this, 'meal', 0)">
+          <span class="ex-opt-name">Halal</span>
+          <span class="ex-opt-price">Free</span>
+        </label>
       </div>
     </div>
 
-    <!-- Travel protection -->
-    <div class="extras-section">
-      <div class="extras-section-title">
-        <span class="extras-icon">🛡️</span>
+    <!-- Insurance -->
+    <div class="ex-group">
+      <div class="ex-group-header">
+        <div class="ex-group-icon">🛡️</div>
         <div>
-          <div class="extras-label">Travel protection</div>
-          <div class="extras-desc">Cancellation and delay cover</div>
+          <div class="ex-group-title">Travel protection</div>
+          <div class="ex-group-hint">Cancellation and delay cover</div>
         </div>
       </div>
-      <div class="extras-options">
-        <div class="extra-option" data-key="insurance" data-price="0" onclick="selectExtra(this, 'insurance')">
-          <div class="extra-opt-name">No thanks</div>
-          <div class="extra-opt-price">Free</div>
-        </div>
-        <div class="extra-option" data-key="insurance" data-price="25" onclick="selectExtra(this, 'insurance')">
-          <div class="extra-opt-name">Basic cover</div>
-          <div class="extra-opt-price">+$25</div>
-        </div>
-        <div class="extra-option" data-key="insurance" data-price="55" onclick="selectExtra(this, 'insurance')">
-          <div class="extra-opt-name">Full cover</div>
-          <div class="extra-opt-price">+$55</div>
-        </div>
+      <div class="ex-opts">
+        <label class="ex-opt ex-opt-selected">
+          <input type="radio" name="insurance" value="0" checked onchange="selectExtra(this, 'insurance', 0)">
+          <span class="ex-opt-name">No thanks</span>
+          <span class="ex-opt-price">Free</span>
+        </label>
+        <label class="ex-opt">
+          <input type="radio" name="insurance" value="25" onchange="selectExtra(this, 'insurance', 25)">
+          <span class="ex-opt-name">Basic cover</span>
+          <span class="ex-opt-price">+$25</span>
+        </label>
+        <label class="ex-opt">
+          <input type="radio" name="insurance" value="55" onchange="selectExtra(this, 'insurance', 55)">
+          <span class="ex-opt-name">Full cover</span>
+          <span class="ex-opt-price">+$55</span>
+        </label>
       </div>
     </div>
 
-  </div>
-</section>
+    <!-- Mobile CTA -->
+    <button class="ex-cta ex-cta-mobile" onclick="continueToPassengers('{{ flight.id }}', {{ passengers }})">
+      Continue to passenger details
+    </button>
 
-<!-- Sticky bottom bar -->
-<div class="extras-summary">
-  <div class="extras-summary-left">
-    <div class="extras-base">
-      Base fare · ${{ "%.2f"|format(flight.price_usd) }} × {{ passengers }}
-    </div>
-    <div class="extras-total-label">Total</div>
-    <div class="extras-total" id="extras-total">
-      ${{ "%.2f"|format(flight.price_usd * passengers|int) }}
-    </div>
-  </div>
-  <button class="btn-continue" onclick="continueToPassengers('{{ flight.id }}', {{ passengers }})">
-    Continue →
-  </button>
+  </main>
 </div>
+
+<style>
+/* ── Shell ───────────────────────────────────────────── */
+.ex-shell {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  min-height: 100vh;
+  padding-top: 64px;
+}
+
+/* ── Aside ───────────────────────────────────────────── */
+.ex-aside {
+  position: sticky;
+  top: 64px;
+  height: calc(100vh - 64px);
+  overflow-y: auto;
+  padding: 2rem 1.75rem;
+  border-right: 1px solid var(--border);
+  background: rgba(8,11,20,0.6);
+  backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  z-index: 10;
+}
+
+.ex-back {
+  font-size: 0.8rem;
+  color: var(--text-3);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.ex-back:hover { color: var(--text-2); }
+
+/* Flight card */
+.ex-flight-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.ex-route {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.ex-airport { display: flex; flex-direction: column; gap: 0.2rem; }
+.ex-airport-right { text-align: right; }
+
+.ex-iata {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.ex-city {
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+
+.ex-arrow { flex: 1; display: flex; justify-content: center; }
+
+.ex-meta-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.ex-meta-item { display: flex; flex-direction: column; gap: 0.15rem; }
+
+.ex-meta-label {
+  font-size: 0.65rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ex-meta-val {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* Price block */
+.ex-price-block {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+}
+
+.ex-price-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+  color: var(--text-2);
+  padding: 0.2rem 0;
+}
+
+.ex-price-amt {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 500;
+}
+
+.ex-extras-line { color: var(--blue-l); }
+
+.ex-price-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.75rem 0;
+}
+
+.ex-price-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+
+.ex-total {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+/* CTA */
+.ex-cta {
+  width: 100%;
+  padding: 0.95rem;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  letter-spacing: -0.01em;
+  margin-top: auto;
+}
+
+.ex-cta:hover {
+  background: var(--blue-l);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(37,99,235,0.3);
+}
+
+.ex-cta-mobile { display: none; }
+
+/* ── Main ────────────────────────────────────────────── */
+.ex-main {
+  padding: 2.5rem 3rem 6rem;
+  max-width: 720px;
+}
+
+.ex-heading {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.35rem;
+}
+
+.ex-sub {
+  font-size: 0.875rem;
+  color: var(--text-2);
+  margin-bottom: 2.5rem;
+}
+
+/* Groups */
+.ex-group {
+  margin-bottom: 2rem;
+}
+
+.ex-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.ex-group-icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.ex-group-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ex-group-hint {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  margin-top: 0.1rem;
+}
+
+/* Options */
+.ex-opts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.ex-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  gap: 0.75rem;
+}
+
+.ex-opt input[type="radio"] {
+  display: none;
+}
+
+.ex-opt:hover {
+  border-color: var(--border-h);
+  background: rgba(255,255,255,0.06);
+}
+
+.ex-opt-selected,
+.ex-opt:has(input:checked) {
+  border-color: var(--blue);
+  background: rgba(37,99,235,0.08);
+}
+
+.ex-opt-name {
+  font-size: 0.875rem;
+  color: var(--text);
+  flex: 1;
+}
+
+.ex-opt-price {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.ex-opt-selected .ex-opt-price,
+.ex-opt:has(input:checked) .ex-opt-price {
+  color: var(--blue-l);
+}
+
+/* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 900px) {
+  .ex-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .ex-aside {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ex-cta { display: none; }
+  .ex-cta-mobile { display: block !important; margin-top: 2rem; width: 100%; }
+
+  .ex-main { padding: 2rem 1.5rem 4rem; }
+}
+
+@media (max-width: 480px) {
+  .ex-opts { grid-template-columns: 1fr; }
+}
+</style>
+
+<script>
+const extraSelections = { seat: 0, baggage: 0, meal: 0, insurance: 0 };
+const baseFare        = {{ flight.price_usd * passengers|int }};
+const pax             = {{ passengers }};
+
+function selectExtra(input, key, price) {
+  // Update label selected state
+  document.querySelectorAll(`input[name="${key}"]`).forEach(r => {
+    r.closest('.ex-opt').classList.remove('ex-opt-selected');
+  });
+  input.closest('.ex-opt').classList.add('ex-opt-selected');
+
+  extraSelections[key] = price;
+  updateTotal();
+}
+
+function updateTotal() {
+  const extrasPerPax = Object.values(extraSelections).reduce((a, b) => a + b, 0);
+  const extrasCost   = extrasPerPax * pax;
+  const total        = baseFare + extrasCost;
+
+  document.getElementById('extras-total').textContent = '$' + total.toFixed(2);
+
+  const extrasLine = document.getElementById('extras-line');
+  const extrasAmt  = document.getElementById('extras-amount');
+  if (extrasCost > 0) {
+    extrasLine.style.display = 'flex';
+    extrasAmt.textContent    = '+$' + extrasCost.toFixed(2);
+  } else {
+    extrasLine.style.display = 'none';
+  }
+}
+
+function continueToPassengers(flightId, passengers) {
+  const extrasPerPax = Object.values(extraSelections).reduce((a, b) => a + b, 0);
+  const extrasCost   = (extrasPerPax * passengers).toFixed(2);
+  window.location.href = `/passengers/${flightId}?passengers=${passengers}&extras_cost=${extrasCost}`;
+}
+</script>
 
 {% endblock %}
