@@ -7,12 +7,18 @@
 <section class="confirmation-page">
   <div class="confirmation-card">
 
-    <div class="confirm-icon confirm-icon-blue">✈</div>
+    <div class="confirm-icon confirm-icon-blue-ring">
+      <svg class="check-ring" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle class="check-circle" cx="32" cy="32" r="30" style="stroke:rgba(37,99,235,0.25);fill:rgba(37,99,235,0.1)"/>
+        <circle class="check-arc" cx="32" cy="32" r="30" transform="rotate(-90 32 32)" style="stroke:var(--blue-l)"/>
+        <polyline class="check-tick" points="20,33 28,41 44,24" style="stroke:var(--blue-l)"/>
+      </svg>
+    </div>
     <h2>Boarding pass</h2>
     <p class="confirm-sub">You're checked in. Have a great flight.</p>
 
     <!-- Boarding pass — reuses eticket chrome, swaps the lower half -->
-    <div class="eticket" style="margin-bottom:2rem">
+    <div class="eticket boarding-pass" style="margin-bottom:2rem">
 
       <!-- Same header as e-ticket -->
       <div class="eticket-header">
