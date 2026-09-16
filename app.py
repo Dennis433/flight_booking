@@ -49,11 +49,6 @@ def create_notification(user_id, booking, ntype):
 
 
 def send_receipt(booking):
-    # Always fire the in-app notification regardless of email config
-    if hasattr(booking, 'payment') and booking.payment:
-        create_notification(booking.user_id, booking, 'payment_confirmed')
-        db.session.commit()
-
     to = booking.contact_email or (booking.user.email if booking.user else None)
     if not to or not app.config.get('MAIL_USERNAME'):
         print(f'[mail] Skipping email — MAIL_USERNAME not configured. Notification sent in-app.')
@@ -138,12 +133,20 @@ class PaymentAdmin(SecureModelView):
 
     @expose('/confirm/<payment_id>', methods=['POST'])
     def confirm_payment(self, payment_id):
+        from datetime import timezone
         payment                = Payment.query.get_or_404(payment_id)
         payment.status         = 'confirmed'
-        payment.confirmed_at   = datetime.utcnow()
+        payment.confirmed_at   = datetime.now(timezone.utc)
         payment.booking.status = 'confirmed'
+
+        # Create the in-app notification before committing so everything
+        # lands in one transaction. send_receipt() also commits internally
+        # which was causing the session to detach before the notification fired.
+        booking = payment.booking
+        create_notification(booking.user_id, booking, 'payment_confirmed')
         db.session.commit()
-        send_receipt(payment.booking)
+
+        send_receipt(booking)
         return ('', 204)
 
 
