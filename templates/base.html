@@ -700,7 +700,85 @@
         msgs.scrollTop = msgs.scrollHeight;
       }
 
-      window.sendSupport = async function () {
+      const SUPPORT_REPLIES = [
+        { words: ['check in', 'check-in', 'checkin', 'online check'],
+          reply: "Online check-in opens 48 hours before your departure and closes 1 hour before.\n\nTo check in:\n1. Go to your Dashboard\n2. Click \"Check in\" on your booking\n3. Pick your seat (rows 1–30, seats A–F)\n4. Your boarding pass is ready immediately after ✅" },
+
+        { words: ['boarding pass'],
+          reply: "Your boarding pass is available right after you complete online check-in.\n\nGo to your Dashboard, open the booking, and tap 'Boarding Pass'. Check-in opens 48 hrs before departure and closes 1 hr before." },
+
+        { words: ['boarding', 'gate', 'when to arrive'],
+          reply: "Boarding starts 30 minutes before departure — please be at the gate 45 minutes early so you don't miss your flight." },
+
+        { words: ['how long', 'payment confirm', 'when.*confirm', 'confirm.*payment'],
+          reply: "After you submit your transaction hash, our team manually verifies it on the blockchain:\n\n• Bitcoin: ~30 minutes\n• Ethereum: ~3 minutes\n• Solana: Near instant\n\nYou'll get an in-app notification and email once confirmed. If still pending after 3 hours, email support@skychain.io with your booking reference and transaction hash." },
+
+        { words: ['pending'],
+          reply: "Payments usually confirm within a few minutes to a few hours. If yours has been pending for more than 3 hours, email support@skychain.io with your booking reference and transaction hash and our team will look into it." },
+
+        { words: ['what crypto', 'which crypto', 'crypto do you', 'accept'],
+          reply: "SkyChain is crypto-only. We accept:\n\n₿ Bitcoin (BTC)\nΞ Ethereum (ETH)\n◎ Solana (SOL)\n\nNo credit cards or bank transfers. Choose your currency at checkout and paste your transaction hash to confirm." },
+
+        { words: ['bitcoin', 'btc'],
+          reply: "Yes, we accept Bitcoin (BTC)! You can also pay with Ethereum (ETH) or Solana (SOL). Choose your preferred crypto at checkout." },
+
+        { words: ['ethereum', 'eth'],
+          reply: "Yes, we accept Ethereum (ETH)! You can also pay with Bitcoin (BTC) or Solana (SOL). Choose your preferred crypto at checkout." },
+
+        { words: ['solana', 'sol'],
+          reply: "Yes, we accept Solana (SOL)! You can also pay with Bitcoin (BTC) or Ethereum (ETH). Choose your preferred crypto at checkout." },
+
+        { words: ['cancel'],
+          reply: "To cancel your booking:\n1. Go to your Dashboard\n2. Find the booking and click \"Cancel booking\"\n\nIf cancelled before check-in opens (48 hrs before departure), a refund in the original crypto may be issued within 3–5 business days. Late cancellations and no-shows are non-refundable." },
+
+        { words: ['change', 'modify', 'reschedule'],
+          reply: "To change your booking, email support@skychain.io with your 8-character booking reference. Changes depend on availability and must be requested before check-in opens." },
+
+        { words: ['refund'],
+          reply: "Refunds are possible if you cancel before check-in opens (48 hrs before departure). Email support@skychain.io with your booking reference — if approved, the refund is returned in the original crypto within 3–5 business days. Late cancellations and no-shows are non-refundable." },
+
+        { words: ['baggage', 'luggage', 'bag', 'suitcase', 'kg', 'weight'],
+          reply: "Baggage options:\n\n• Carry-on only: 1 bag up to 10 kg (free)\n• 1 checked bag: up to 23 kg (+$35)\n• 2 checked bags: up to 23 kg each (+$60)\n• 2 checked bags: up to 32 kg each (+$90)\n\nBaggage is selected during the extras step at booking." },
+
+        { words: ['confirmation email', 'no email', 'did not receive', 'didn\'t receive', 'not receive'],
+          reply: "Confirmation emails go out as soon as your payment is confirmed. Please check your spam/junk folder first — it often ends up there.\n\nAll your booking details are also visible on your Dashboard under 'My bookings'." },
+
+        { words: ['not loading', 'broken', 'bug', 'error', 'technical', 'issue', 'problem'],
+          reply: "Sorry you're running into trouble! Try clearing your browser cache or switching to a different browser — that fixes most issues.\n\nIf it's still not working, email support@skychain.io and our team will sort it out quickly." },
+
+        { words: ['seat', 'select seat', 'choose seat'],
+          reply: "You pick your seat during online check-in, which opens 48 hours before departure. We have rows 1–30 with seats A–F available." },
+
+        { words: ['booking reference', 'reference number', 'booking number'],
+          reply: "Your 8-character booking reference is shown on your Dashboard and on your e-ticket. You'll need it when contacting us at support@skychain.io." },
+
+        { words: ['how do i book', 'how to book', 'book a flight'],
+          reply: "Booking is simple:\n1. Enter your origin, destination & date on the homepage\n2. Pick a flight from the results\n3. Choose extras (seat, baggage)\n4. Fill in passenger details\n5. Pay with BTC, ETH or SOL\n6. Paste your transaction hash — confirmed! ✅" },
+
+        { words: ['human', 'real person', 'agent', 'talk to someone'],
+          reply: "Our support team is available via email:\n\n📧 support@skychain.io\n\nPlease include your booking reference so we can help you faster. We typically respond within 2–4 hours." },
+
+        { words: ['hello', 'hi there', 'good morning', 'good afternoon', 'good evening'],
+          reply: "👋 Hi! I'm the SkyChain support assistant. How can I help you today? Feel free to ask about check-in, payments, baggage, or anything else." },
+
+        { words: ['thank'],
+          reply: "You're welcome! Is there anything else I can help you with? ✈️" },
+
+        { words: ['bye', 'goodbye', 'see you'],
+          reply: "Safe travels! Come back anytime if you have questions. ✈️" },
+      ];
+
+      function hardCodedReply(text) {
+        const lower = text.toLowerCase();
+        for (const rule of SUPPORT_REPLIES) {
+          if (rule.words.some(w => lower.includes(w))) {
+            return rule.reply;
+          }
+        }
+        return "I'm not sure about that one. Here are some things I can help with — tap a button above, or email support@skychain.io with your booking reference for personal assistance.";
+      }
+
+      window.sendSupport = function () {
         const input = document.getElementById('support-input');
         const text  = input.value.trim();
         if (!text) return;
@@ -708,27 +786,15 @@
         document.getElementById('support-faq-chips').style.display = 'none';
 
         appendMsg(text, 'user');
-        supportHist.push({ role: 'user', content: text });
 
         const typing = document.getElementById('support-typing');
         typing.style.display = 'block';
         document.getElementById('support-messages').scrollTop = 99999;
 
-        try {
-          const res   = await fetch('/api/support-chat', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ messages: supportHist })
-          });
-          const data  = await res.json();
-          const reply = data.reply || 'Something went wrong. Please try again.';
+        setTimeout(() => {
           typing.style.display = 'none';
-          appendMsg(reply, 'bot');
-          supportHist.push({ role: 'assistant', content: reply });
-        } catch (err) {
-          typing.style.display = 'none';
-          appendMsg('Something went wrong. Please email support@skychain.io for help.', 'bot');
-        }
+          appendMsg(hardCodedReply(text), 'bot');
+        }, 500);
       };
     })();
     </script>
