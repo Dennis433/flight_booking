@@ -39,7 +39,13 @@ class Config:
     SUPABASE_ANON_KEY = os.getenv('SUPABASE_ANON_KEY', '')
 
     # Crypto wallets
-    BTC_WALLET   = os.getenv('BTC_WALLET', '')
-    ETH_WALLET   = os.getenv('ETH_WALLET', '')
-    SOL_WALLET   = os.getenv('SOL_WALLET', '')
+    BTC_WALLET        = os.getenv('BTC_WALLET', '')
+    ETH_WALLET        = os.getenv('ETH_WALLET', '')
+    SOL_WALLET        = os.getenv('SOL_WALLET', '')
+    # USDT — ERC-20 (Ethereum) and SPL (Solana)
+    USDT_ETH_WALLET   = os.getenv('USDT_ETH_WALLET', '')
+    USDT_SOL_WALLET   = os.getenv('USDT_SOL_WALLET', '')
+    # USDC — ERC-20 (Ethereum) and SPL (Solana)
+    USDC_ETH_WALLET   = os.getenv('USDC_ETH_WALLET', '')
+    USDC_SOL_WALLET   = os.getenv('USDC_SOL_WALLET', '')
     WEB3_PROVIDER = os.getenv('WEB3_PROVIDER', 'https://mainnet.infura.io/v3/your_key')
