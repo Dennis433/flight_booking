@@ -8,7 +8,7 @@ from markupsafe import Markup
 from config import Config
 from models import db, User, Airport, Flight, Booking, Payment, Notification
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 import httpx
 import os
 import re
@@ -133,7 +133,6 @@ class PaymentAdmin(SecureModelView):
 
     @expose('/confirm/<payment_id>', methods=['POST'])
     def confirm_payment(self, payment_id):
-        from datetime import timezone
         try:
             payment                = Payment.query.get_or_404(payment_id)
             booking                = payment.booking
@@ -630,7 +629,6 @@ def api_notifications():
     )
 
     def fmt_time(dt):
-        from datetime import timezone
         now   = datetime.now(timezone.utc)
         delta = now - (dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt)
         secs  = int(delta.total_seconds())
