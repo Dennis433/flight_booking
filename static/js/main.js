@@ -509,7 +509,63 @@ function copyAddress(elemId, btn) {
 
 // selectCrypto is defined in payment.html
 
-// ── Dashboard ─────────────────────────────────────────
+async function confirmPayment(bookingId) {
+  const txHash = document.getElementById('tx-hash')?.value.trim();
+  const err    = document.getElementById('pay-error');
+  const btn    = document.getElementById('btn-confirm');
+
+  // selectedCrypto and selectedChain are declared as var in payment.html (window scope)
+  const crypto = window.selectedCrypto;
+  const chain  = window.selectedChain;
+
+  if (!crypto)  { showAuthError(err, 'Select a payment method.'); return; }
+  if (!txHash)  { showAuthError(err, 'Paste your transaction hash.'); return; }
+
+  const needsChain = (crypto === 'USDT' || crypto === 'USDC');
+  if (needsChain && !chain) {
+    showAuthError(err, 'Please select a network (Ethereum or Solana).');
+    return;
+  }
+
+  // Disable button immediately — prevents double-submit
+  btn.disabled    = true;
+  btn.textContent = 'Submitting…';
+  if (err) err.style.display = 'none';
+
+  const RATES = { BTC: 0.000015, ETH: 0.00035, SOL: 0.065, USDT: 1.0, USDC: 1.0 };
+  const totalEl  = document.querySelector('.summary-row.total .summary-val');
+  const totalUsd = totalEl ? parseFloat(totalEl.textContent.replace('$', '')) : 0;
+  const decimals = (crypto === 'USDT' || crypto === 'USDC') ? 2 : 6;
+  const amount   = (totalUsd * RATES[crypto]).toFixed(decimals);
+
+  try {
+    const res  = await fetch(`/pay/${bookingId}/submit`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        crypto_type:   crypto,
+        chain:         chain,
+        tx_hash:       txHash,
+        amount_crypto: parseFloat(amount)
+      })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showAuthError(err, data.error || 'Payment failed.');
+      btn.disabled    = false;
+      btn.textContent = 'Confirm payment';
+      return;
+    }
+    window.location.href = data.pending_url || `/booking/${bookingId}/pending`;
+  } catch (e) {
+    showAuthError(err, 'Network error — please try again.');
+    btn.disabled    = false;
+    btn.textContent = 'Confirm payment';
+  }
+}
+
+
 async function cancelBooking(bookingId) {
   if (!confirm('Cancel this booking? This cannot be undone.')) return;
 
