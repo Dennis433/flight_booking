@@ -485,12 +485,15 @@ function continueToPassengers(flightId, passengers) {
 
 // ── Payment ───────────────────────────────────────────
 const RATES = {
-  BTC: 0.000015,
-  ETH: 0.00035,
-  SOL: 0.065,
+  BTC:  0.000015,
+  ETH:  0.00035,
+  SOL:  0.065,
+  USDT: 1.0,
+  USDC: 1.0,
 };
 
 let selectedCrypto = null;
+let selectedChain  = null; // 'ETH' or 'SOL' — set by chain picker for USDT/USDC
 
 function copyAddress(elemId, btn) {
   const text = document.getElementById(elemId)?.textContent?.trim();
@@ -506,33 +509,9 @@ function copyAddress(elemId, btn) {
 }
 
 function selectCrypto(type) {
-  ['BTC', 'ETH', 'SOL'].forEach(c => {
-    const el  = document.getElementById(`opt-${c.toLowerCase()}`);
-    if (el) el.className = 'crypto-option';
-    const row = document.getElementById(`wallet-${c.toLowerCase()}`);
-    if (row) row.style.outline = 'none';
-  });
-
-  selectedCrypto = type;
-  const el  = document.getElementById(`opt-${type.toLowerCase()}`);
-  if (el) el.className = `crypto-option selected-${type.toLowerCase()}`;
-
-  const row = document.getElementById(`wallet-${type.toLowerCase()}`);
-  if (row) row.style.outline = `2px solid var(--${type.toLowerCase() === 'btc' ? 'btc' : type.toLowerCase() === 'eth' ? 'eth' : 'sol'})`;
-
-  const totalEl  = document.querySelector('.summary-row.total .summary-val');
-  const totalUsd = totalEl ? parseFloat(totalEl.textContent.replace('$', '')) : 0;
-  const amount   = (totalUsd * RATES[type]).toFixed(6);
-
-  const amtEl      = document.getElementById('wallet-amount');
-  const amtDisplay = document.getElementById('wallet-amount-display');
-  const txGroup    = document.getElementById('tx-group');
-  const btnConf    = document.getElementById('btn-confirm');
-
-  if (amtEl)      amtEl.textContent        = `${amount} ${type}`;
-  if (amtDisplay) amtDisplay.style.display = 'flex';
-  if (txGroup)    txGroup.style.display    = 'block';
-  if (btnConf)    btnConf.style.display    = 'block';
+  // Handled entirely in payment.html for the new multi-step UI.
+  // This stub keeps any external callers from erroring.
+  if (typeof window.selectCrypto_page === 'function') window.selectCrypto_page(type);
 }
 
 async function confirmPayment(bookingId) {
@@ -547,9 +526,20 @@ async function confirmPayment(bookingId) {
   btn.textContent = 'Submitting…';
   err.style.display = 'none';
 
+  // For USDT/USDC, require chain selection
+  const needsChain = (selectedCrypto === 'USDT' || selectedCrypto === 'USDC');
+  const chain = (typeof selectedChain !== 'undefined') ? selectedChain : null;
+  if (needsChain && !chain) {
+    showAuthError(err, 'Please select a network (Ethereum or Solana).');
+    btn.disabled    = false;
+    btn.textContent = 'Confirm payment';
+    return;
+  }
+
   const totalEl  = document.querySelector('.summary-row.total .summary-val');
   const totalUsd = totalEl ? parseFloat(totalEl.textContent.replace('$', '')) : 0;
-  const amount   = (totalUsd * RATES[selectedCrypto]).toFixed(6);
+  const decimals = (selectedCrypto === 'USDT' || selectedCrypto === 'USDC') ? 2 : 6;
+  const amount   = (totalUsd * RATES[selectedCrypto]).toFixed(decimals);
 
   try {
     const res  = await fetch(`/pay/${bookingId}/submit`, {
@@ -557,6 +547,7 @@ async function confirmPayment(bookingId) {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
         crypto_type:   selectedCrypto,
+        chain:         chain,
         tx_hash:       txHash,
         amount_crypto: parseFloat(amount)
       })
