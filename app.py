@@ -687,6 +687,47 @@ def api_notifications_mark_read():
     return jsonify({'ok': True})
 
 
+# ─── Auto-migration ─────────────────────────────────────────
+# Runs once on the first request after every deploy.
+# Uses raw SQL ALTER TABLE so it's safe on both SQLite and PostgreSQL.
+# Each column add is guarded — re-running never fails.
+
+_migrations_ran = False
+
+@app.before_request
+def run_migrations():
+    global _migrations_ran
+    if _migrations_ran:
+        return
+    _migrations_ran = True
+
+    with db.engine.connect() as conn:
+        _add_column_if_missing(conn, 'bookings',  'seat_number',      'VARCHAR(10)')
+        _add_column_if_missing(conn, 'bookings',  'checked_in',       'BOOLEAN DEFAULT FALSE')
+        _add_column_if_missing(conn, 'bookings',  'checkin_opens_at', 'TIMESTAMP')
+        _add_column_if_missing(conn, 'bookings',  'contact_email',    'VARCHAR(120)')
+        _add_column_if_missing(conn, 'bookings',  'contact_phone',    'VARCHAR(30)')
+        _add_column_if_missing(conn, 'payments',  'chain',            'VARCHAR(10)')
+        _add_column_if_missing(conn, 'payments',  'confirmed_at',     'TIMESTAMP')
+        _add_column_if_missing(conn, 'notifications', 'booking_id',   'VARCHAR(36)')
+        conn.commit()
+
+
+def _add_column_if_missing(conn, table, column, col_type):
+    """Add a column only if it doesn't already exist. Works on PostgreSQL and SQLite."""
+    try:
+        from sqlalchemy import text, inspect as sa_inspect
+        inspector = sa_inspect(conn)
+        existing  = [c['name'] for c in inspector.get_columns(table)]
+        if column not in existing:
+            conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {column} {col_type}'))
+            print(f'[migrate] added {table}.{column}')
+        # else: already exists, skip silently
+    except Exception as e:
+        # Log but never crash the app over a migration
+        print(f'[migrate] skipped {table}.{column}: {e}')
+
+
 # ─── Init ──────────────────────────────────────────────────
 
 if __name__ == '__main__':
