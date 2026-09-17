@@ -31,80 +31,84 @@
       </div>
     </div>
 
-    <!-- All wallet addresses shown upfront -->
-    <div class="all-wallets">
-      <p class="all-wallets-label">Send payment to one of these addresses</p>
+    <!-- ── Step 1: Choose currency ───────────────────────── -->
+    <p class="pay-step-label">Select payment currency</p>
+    <div class="crypto-options">
 
-      <div class="wallet-row" id="wallet-btc">
-        <div class="wallet-row-header">
-          <span class="wallet-crypto-icon btc-icon">₿</span>
-          <span class="wallet-crypto-name">Bitcoin <span class="wallet-ticker">BTC</span></span>
-        </div>
-        <div class="wallet-addr-box">
-          <span class="wallet-addr-text" id="addr-btc">{{ config.BTC_WALLET or 'Not configured' }}</span>
-          <button class="copy-btn" onclick="copyAddress('addr-btc', this)" title="Copy BTC address">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            Copy
-          </button>
-        </div>
+      <div class="crypto-option" id="opt-btc" onclick="selectCrypto('BTC')">
+        <div class="crypto-icon btc-icon">₿</div>
+        <div class="crypto-name">Bitcoin</div>
+        <div class="crypto-symbol">BTC</div>
       </div>
 
-      <div class="wallet-row" id="wallet-eth">
-        <div class="wallet-row-header">
-          <span class="wallet-crypto-icon eth-icon">Ξ</span>
-          <span class="wallet-crypto-name">Ethereum <span class="wallet-ticker">ETH</span></span>
-        </div>
-        <div class="wallet-addr-box">
-          <span class="wallet-addr-text" id="addr-eth">{{ config.ETH_WALLET or 'Not configured' }}</span>
-          <button class="copy-btn" onclick="copyAddress('addr-eth', this)" title="Copy ETH address">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            Copy
-          </button>
-        </div>
+      <div class="crypto-option" id="opt-eth" onclick="selectCrypto('ETH')">
+        <div class="crypto-icon eth-icon">Ξ</div>
+        <div class="crypto-name">Ethereum</div>
+        <div class="crypto-symbol">ETH</div>
       </div>
 
-      <div class="wallet-row" id="wallet-sol">
-        <div class="wallet-row-header">
-          <span class="wallet-crypto-icon sol-icon">◎</span>
-          <span class="wallet-crypto-name">Solana <span class="wallet-ticker">SOL</span></span>
+      <div class="crypto-option" id="opt-sol" onclick="selectCrypto('SOL')">
+        <div class="crypto-icon sol-icon">◎</div>
+        <div class="crypto-name">Solana</div>
+        <div class="crypto-symbol">SOL</div>
+      </div>
+
+      <div class="crypto-option" id="opt-usdt" onclick="selectCrypto('USDT')">
+        <div class="crypto-icon usdt-icon">₮</div>
+        <div class="crypto-name">Tether</div>
+        <div class="crypto-symbol">USDT</div>
+      </div>
+
+      <div class="crypto-option" id="opt-usdc" onclick="selectCrypto('USDC')">
+        <div class="crypto-icon usdc-icon">$</div>
+        <div class="crypto-name">USD Coin</div>
+        <div class="crypto-symbol">USDC</div>
+      </div>
+
+    </div>
+
+    <!-- ── Step 2: Chain picker (USDT / USDC only) ──────── -->
+    <div class="chain-picker" id="chain-picker" style="display:none">
+      <p class="pay-step-label">Choose network</p>
+      <div class="chain-options">
+        <div class="chain-option" id="chain-eth" onclick="selectChain('ETH')">
+          <span class="chain-icon eth-icon">Ξ</span>
+          <div>
+            <div class="chain-name">Ethereum</div>
+            <div class="chain-sub">ERC-20</div>
+          </div>
         </div>
-        <div class="wallet-addr-box">
-          <span class="wallet-addr-text" id="addr-sol">{{ config.SOL_WALLET or 'Not configured' }}</span>
-          <button class="copy-btn" onclick="copyAddress('addr-sol', this)" title="Copy SOL address">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            Copy
-          </button>
+        <div class="chain-option" id="chain-sol" onclick="selectChain('SOL')">
+          <span class="chain-icon sol-icon">◎</span>
+          <div>
+            <div class="chain-name">Solana</div>
+            <div class="chain-sub">SPL Token</div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Step 2: select which crypto they used -->
-    <div class="crypto-select">
-      <p>Which currency are you paying with?</p>
-      <div class="crypto-options">
-        <div class="crypto-option" id="opt-btc" onclick="selectCrypto('BTC')">
-          <div class="crypto-icon">₿</div>
-          <div class="crypto-name">Bitcoin</div>
-          <div class="crypto-symbol">BTC</div>
-        </div>
-        <div class="crypto-option" id="opt-eth" onclick="selectCrypto('ETH')">
-          <div class="crypto-icon">Ξ</div>
-          <div class="crypto-name">Ethereum</div>
-          <div class="crypto-symbol">ETH</div>
-        </div>
-        <div class="crypto-option" id="opt-sol" onclick="selectCrypto('SOL')">
-          <div class="crypto-icon">◎</div>
-          <div class="crypto-name">Solana</div>
-          <div class="crypto-symbol">SOL</div>
-        </div>
+    <!-- ── Step 3: Wallet address ────────────────────────── -->
+    <div class="wallet-section" id="wallet-section" style="display:none">
+      <p class="pay-step-label">Send exact amount to this address</p>
+
+      <div class="wallet-amount-display">
+        <span class="amount-label">Exact amount:</span>
+        <span class="amount-value" id="wallet-amount"></span>
       </div>
+
+      <div class="wallet-addr-box">
+        <span class="wallet-addr-text" id="wallet-addr-text"></span>
+        <button class="copy-btn" id="copy-btn" onclick="copyActiveAddress(this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy
+        </button>
+      </div>
+
+      <div class="wallet-chain-badge" id="wallet-chain-badge"></div>
     </div>
 
-    <div class="wallet-amount-display" id="wallet-amount-display" style="display:none">
-      <span class="amount-label">Exact amount to send:</span>
-      <span class="amount-value" id="wallet-amount"></span>
-    </div>
-
+    <!-- ── Step 4: Tx hash + confirm ────────────────────── -->
     <div class="tx-input-group" id="tx-group" style="display:none">
       <label>Transaction hash</label>
       <input type="text" id="tx-hash" placeholder="Paste your transaction hash here" />
@@ -115,70 +119,160 @@
     <button class="btn-confirm" id="btn-confirm" style="display:none" onclick="confirmPayment('{{ booking.id }}')">
       Confirm payment
     </button>
+
   </div>
 </section>
 
-<style>
-.all-wallets {
-  margin: 1.5rem 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+<!-- Wallet addresses from config (hidden, read by JS) -->
+<script id="wallet-data" type="application/json">
+{
+  "BTC":      "{{ config.BTC_WALLET      | default('', true) }}",
+  "ETH":      "{{ config.ETH_WALLET      | default('', true) }}",
+  "SOL":      "{{ config.SOL_WALLET      | default('', true) }}",
+  "USDT_ETH": "{{ config.USDT_ETH_WALLET | default('', true) }}",
+  "USDT_SOL": "{{ config.USDT_SOL_WALLET | default('', true) }}",
+  "USDC_ETH": "{{ config.USDC_ETH_WALLET | default('', true) }}",
+  "USDC_SOL": "{{ config.USDC_SOL_WALLET | default('', true) }}"
 }
+</script>
 
-.all-wallets-label {
-  font-size: 0.8rem;
+<style>
+/* ── Step label ─────────────────────────────────────── */
+.pay-step-label {
+  font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-3);
-  margin-bottom: 0.25rem;
+  margin: 1.5rem 0 0.75rem;
 }
 
-.wallet-row {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+/* ── Currency options ───────────────────────────────── */
+.crypto-options {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 520px) {
+  .crypto-options { grid-template-columns: repeat(3, 1fr); }
+}
+
+.crypto-option {
+  border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 1rem 1.25rem;
-  transition: border-color 0.2s;
+  padding: 0.9rem 0.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  user-select: none;
+}
+.crypto-option:hover {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--border-h);
+  transform: translateY(-1px);
+}
+.crypto-icon {
+  font-size: 1.3rem;
+  font-weight: 700;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 0.45rem;
+}
+.btc-icon  { color: var(--btc); background: rgba(247,147,26,0.12); }
+.eth-icon  { color: var(--eth); background: rgba(98,126,234,0.12); }
+.sol-icon  { color: var(--sol); background: rgba(153,69,255,0.12); }
+.usdt-icon { color: #26a17b;   background: rgba(38,161,123,0.12); }
+.usdc-icon { color: #2775ca;   background: rgba(39,117,202,0.12); }
+
+.crypto-name   { font-size: 0.75rem; font-weight: 600; color: var(--text); }
+.crypto-symbol { font-size: 0.65rem; color: var(--text-3); margin-top: 0.1rem; }
+
+/* Selected states */
+.selected-btc  { border-color: var(--btc)  !important; background: rgba(247,147,26,0.07)  !important; }
+.selected-eth  { border-color: var(--eth)  !important; background: rgba(98,126,234,0.07)  !important; }
+.selected-sol  { border-color: var(--sol)  !important; background: rgba(153,69,255,0.07)  !important; }
+.selected-usdt { border-color: #26a17b     !important; background: rgba(38,161,123,0.07)  !important; }
+.selected-usdc { border-color: #2775ca     !important; background: rgba(39,117,202,0.07)  !important; }
+
+/* ── Chain picker ───────────────────────────────────── */
+.chain-picker {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem 1.25rem;
+  margin-top: 0.25rem;
 }
 
-.wallet-row:hover {
-  border-color: rgba(255,255,255,0.15);
+.chain-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
 }
 
-.wallet-row-header {
+.chain-option {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  user-select: none;
+}
+.chain-option:hover {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--border-h);
+  transform: translateY(-1px);
+}
+.chain-option.selected-chain-eth {
+  border-color: var(--eth) !important;
+  background: rgba(98,126,234,0.08) !important;
+}
+.chain-option.selected-chain-sol {
+  border-color: var(--sol) !important;
+  background: rgba(153,69,255,0.08) !important;
+}
+
+.chain-icon {
+  font-size: 1.15rem;
+  font-weight: 700;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.chain-name { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+.chain-sub  { font-size: 0.68rem; color: var(--text-3); margin-top: 0.1rem; }
+
+/* ── Wallet address section ─────────────────────────── */
+.wallet-section {
+  margin-top: 0.5rem;
+  animation: fadeSlideIn 0.2s ease;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.wallet-amount-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(37,99,235,0.08);
+  border: 1px solid rgba(37,99,235,0.2);
+  border-radius: 10px;
+  padding: 0.85rem 1.1rem;
   margin-bottom: 0.75rem;
 }
-
-.wallet-crypto-icon {
-  font-size: 1.1rem;
-  font-weight: 700;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-}
-
-.btc-icon { color: var(--btc); background: rgba(247,147,26,0.12); }
-.eth-icon { color: var(--eth); background: rgba(98,126,234,0.12); }
-.sol-icon { color: var(--sol); background: rgba(153,69,255,0.12); }
-
-.wallet-crypto-name {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.wallet-ticker {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-3);
-  margin-left: 0.25rem;
+.amount-label { font-size: 0.82rem; color: var(--text-2); }
+.amount-value {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.1rem; font-weight: 700;
+  color: var(--blue-l);
 }
 
 .wallet-addr-box {
@@ -190,10 +284,9 @@
   border-radius: 8px;
   padding: 0.65rem 0.9rem;
 }
-
 .wallet-addr-text {
   font-family: 'Space Mono', 'Courier New', monospace;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--text);
   letter-spacing: 0.02em;
@@ -203,55 +296,148 @@
 }
 
 .copy-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
+  display: flex; align-items: center; gap: 0.35rem;
   background: rgba(37,99,235,0.15);
   border: 1px solid rgba(37,99,235,0.3);
   color: var(--blue-l);
   border-radius: 6px;
   padding: 0.4rem 0.75rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
+  font-size: 0.78rem; font-weight: 600;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
   transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
-
-.copy-btn:hover {
-  background: rgba(37,99,235,0.3);
-  border-color: var(--blue-l);
-}
-
+.copy-btn:hover { background: rgba(37,99,235,0.3); border-color: var(--blue-l); }
 .copy-btn.copied {
   background: rgba(34,197,94,0.15);
   border-color: rgba(34,197,94,0.4);
   color: #4ade80;
 }
 
-.wallet-amount-display {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(37,99,235,0.08);
-  border: 1px solid rgba(37,99,235,0.2);
-  border-radius: 10px;
-  padding: 0.85rem 1.1rem;
-  margin: 0.5rem 0 1rem;
-}
-
-.amount-label {
-  font-size: 0.82rem;
-  color: var(--text-2);
-}
-
-.amount-value {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--blue-l);
+.wallet-chain-badge {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  color: var(--text-3);
 }
 </style>
+
+<script>
+const WALLETS = JSON.parse(document.getElementById('wallet-data').textContent);
+
+const RATES = {
+  BTC:  0.000015,
+  ETH:  0.00035,
+  SOL:  0.065,
+  USDT: 1.0,
+  USDC: 1.0,
+};
+
+const ALL_CRYPTOS = ['btc','eth','sol','usdt','usdc'];
+let selectedCrypto = null;
+let selectedChain  = null;  // 'ETH' or 'SOL' — only used for USDT/USDC
+
+// ── Step 1: currency selection ────────────────────────
+function selectCrypto(type) {
+  // Reset all option styles
+  ALL_CRYPTOS.forEach(c => {
+    const el = document.getElementById(`opt-${c}`);
+    if (el) el.className = 'crypto-option';
+  });
+
+  selectedCrypto = type;
+  selectedChain  = null;
+
+  const optEl = document.getElementById(`opt-${type.toLowerCase()}`);
+  if (optEl) optEl.className = `crypto-option selected-${type.toLowerCase()}`;
+
+  const needsChain = (type === 'USDT' || type === 'USDC');
+
+  // Show / hide chain picker
+  const chainPicker = document.getElementById('chain-picker');
+  chainPicker.style.display = needsChain ? 'block' : 'none';
+
+  // Reset chain selection UI
+  ['eth','sol'].forEach(c => {
+    const el = document.getElementById(`chain-${c}`);
+    if (el) el.className = 'chain-option';
+  });
+
+  if (needsChain) {
+    // Hide wallet section until chain chosen
+    document.getElementById('wallet-section').style.display = 'none';
+    document.getElementById('tx-group').style.display       = 'none';
+    document.getElementById('btn-confirm').style.display    = 'none';
+  } else {
+    // BTC / ETH / SOL — show address directly
+    showWallet(type, null);
+  }
+}
+
+// ── Step 2: chain selection (USDT / USDC only) ────────
+function selectChain(chain) {
+  selectedChain = chain;
+
+  ['eth','sol'].forEach(c => {
+    const el = document.getElementById(`chain-${c}`);
+    if (el) el.className = 'chain-option';
+  });
+  const chainEl = document.getElementById(`chain-${chain.toLowerCase()}`);
+  if (chainEl) chainEl.className = `chain-option selected-chain-${chain.toLowerCase()}`;
+
+  showWallet(selectedCrypto, chain);
+}
+
+// ── Show wallet address + amount ──────────────────────
+function showWallet(crypto, chain) {
+  let addrKey, badgeText;
+
+  if (crypto === 'BTC')  { addrKey = 'BTC';      badgeText = 'Bitcoin Network'; }
+  if (crypto === 'ETH')  { addrKey = 'ETH';      badgeText = 'Ethereum Network'; }
+  if (crypto === 'SOL')  { addrKey = 'SOL';      badgeText = 'Solana Network'; }
+  if (crypto === 'USDT' && chain === 'ETH') { addrKey = 'USDT_ETH'; badgeText = 'USDT · ERC-20 (Ethereum)'; }
+  if (crypto === 'USDT' && chain === 'SOL') { addrKey = 'USDT_SOL'; badgeText = 'USDT · SPL Token (Solana)'; }
+  if (crypto === 'USDC' && chain === 'ETH') { addrKey = 'USDC_ETH'; badgeText = 'USDC · ERC-20 (Ethereum)'; }
+  if (crypto === 'USDC' && chain === 'SOL') { addrKey = 'USDC_SOL'; badgeText = 'USDC · SPL Token (Solana)'; }
+
+  const addr = WALLETS[addrKey] || 'Not configured';
+
+  const totalEl  = document.querySelector('.summary-row.total .summary-val');
+  const totalUsd = totalEl ? parseFloat(totalEl.textContent.replace('$', '')) : 0;
+  const amount   = (totalUsd * RATES[crypto]).toFixed(crypto === 'USDT' || crypto === 'USDC' ? 2 : 6);
+
+  document.getElementById('wallet-addr-text').textContent  = addr;
+  document.getElementById('wallet-amount').textContent     = `${amount} ${crypto}`;
+  document.getElementById('wallet-chain-badge').textContent = badgeText;
+
+  // Reset copy button
+  const copyBtn = document.getElementById('copy-btn');
+  copyBtn.className = 'copy-btn';
+  copyBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+
+  document.getElementById('wallet-section').style.display = 'block';
+  document.getElementById('tx-group').style.display       = 'block';
+  document.getElementById('btn-confirm').style.display    = 'block';
+}
+
+// ── Copy active address ───────────────────────────────
+function copyActiveAddress(btn) {
+  const text = document.getElementById('wallet-addr-text').textContent.trim();
+  if (!text || text === 'Not configured') return;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.classList.add('copied');
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+    }, 2500);
+  });
+}
+</script>
 
 {% endblock %}
