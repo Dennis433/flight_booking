@@ -690,45 +690,40 @@ def api_notifications_mark_read():
 # Uses raw SQL ALTER TABLE so it's safe on both SQLite and PostgreSQL.
 # Each column add is guarded — re-running never fails.
 
-_migrations_ran = False
-
-@app.before_request
-def run_migrations():
-    global _migrations_ran
-    if _migrations_ran:
-        return
-    _migrations_ran = True
-
-    with db.engine.connect() as conn:
-        _add_column_if_missing(conn, 'bookings',  'seat_number',      'VARCHAR(10)')
-        _add_column_if_missing(conn, 'bookings',  'checked_in',       'BOOLEAN DEFAULT FALSE')
-        _add_column_if_missing(conn, 'bookings',  'checkin_opens_at', 'TIMESTAMP')
-        _add_column_if_missing(conn, 'bookings',  'contact_email',    'VARCHAR(120)')
-        _add_column_if_missing(conn, 'bookings',  'contact_phone',    'VARCHAR(30)')
-        _add_column_if_missing(conn, 'payments',  'chain',            'VARCHAR(10)')
-        _add_column_if_missing(conn, 'payments',  'confirmed_at',     'TIMESTAMP')
-        _add_column_if_missing(conn, 'notifications', 'booking_id',   'VARCHAR(36)')
-        conn.commit()
-
-
 def _add_column_if_missing(conn, table, column, col_type):
     """Add a column only if it doesn't already exist. Works on PostgreSQL and SQLite."""
     try:
         from sqlalchemy import text, inspect as sa_inspect
-        inspector = sa_inspect(conn)
+        inspector = sa_inspect(db.engine)
         existing  = [c['name'] for c in inspector.get_columns(table)]
         if column not in existing:
-            conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {column} {col_type}'))
+            conn.execute(text(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {col_type}'))
             print(f'[migrate] added {table}.{column}')
-        # else: already exists, skip silently
     except Exception as e:
-        # Log but never crash the app over a migration
         print(f'[migrate] skipped {table}.{column}: {e}')
+
+
+def run_migrations():
+    """Run safe ADD COLUMN migrations. Called once at app startup."""
+    try:
+        with db.engine.begin() as conn:
+            _add_column_if_missing(conn, 'bookings',     'seat_number',      'VARCHAR(10)')
+            _add_column_if_missing(conn, 'bookings',     'checked_in',       'BOOLEAN DEFAULT false')
+            _add_column_if_missing(conn, 'bookings',     'checkin_opens_at', 'TIMESTAMP WITH TIME ZONE')
+            _add_column_if_missing(conn, 'bookings',     'contact_email',    'VARCHAR(120)')
+            _add_column_if_missing(conn, 'bookings',     'contact_phone',    'VARCHAR(30)')
+            _add_column_if_missing(conn, 'payments',     'chain',            'VARCHAR(10)')
+            _add_column_if_missing(conn, 'payments',     'confirmed_at',     'TIMESTAMP WITH TIME ZONE')
+            _add_column_if_missing(conn, 'notifications','booking_id',       'VARCHAR(36)')
+    except Exception as e:
+        print(f'[migrate] migration error (non-fatal): {e}')
 
 
 # ─── Init ──────────────────────────────────────────────────
 
+with app.app_context():
+    db.create_all()
+    run_migrations()
+
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(debug=True)
