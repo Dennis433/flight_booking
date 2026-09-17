@@ -418,12 +418,13 @@ def submit_payment(booking_id):
     crypto  = data.get('crypto_type', '').upper()
     tx_hash = data.get('tx_hash')
 
-    if crypto not in ['BTC', 'ETH', 'SOL']:
+    if crypto not in ['BTC', 'ETH', 'SOL', 'USDT', 'USDC']:
         return jsonify({'error': 'Unsupported crypto'}), 400
 
     payment = Payment(
         booking_id    = booking_id,
         crypto_type   = crypto,
+        chain         = data.get('chain', '').upper().strip() or None,
         amount_crypto = data.get('amount_crypto'),
         tx_hash       = tx_hash,
         status        = 'pending'
