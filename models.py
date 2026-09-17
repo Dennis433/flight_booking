@@ -132,7 +132,8 @@ class Payment(db.Model):
 
     id            = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     booking_id    = db.Column(db.String(36), db.ForeignKey('bookings.id'), nullable=False)
-    crypto_type   = db.Column(db.String(10), nullable=False)   # BTC, ETH, SOL
+    crypto_type   = db.Column(db.String(10), nullable=False)   # BTC, ETH, SOL, USDT, USDC
+    chain         = db.Column(db.String(10), nullable=True)    # ETH or SOL — for USDT/USDC
     amount_crypto = db.Column(db.Float, nullable=False)
     tx_hash       = db.Column(db.String(200), unique=True, nullable=True)
     status        = db.Column(db.String(20), default='pending')  # pending, confirmed, failed
