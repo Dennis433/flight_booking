@@ -492,8 +492,7 @@ const RATES = {
   USDC: 1.0,
 };
 
-let selectedCrypto = null;
-let selectedChain  = null; // 'ETH' or 'SOL' — set by chain picker for USDT/USDC
+// selectedCrypto and selectedChain are declared in payment.html to avoid scope conflicts
 
 function copyAddress(elemId, btn) {
   const text = document.getElementById(elemId)?.textContent?.trim();
@@ -508,65 +507,7 @@ function copyAddress(elemId, btn) {
   });
 }
 
-function selectCrypto(type) {
-  // Handled entirely in payment.html for the new multi-step UI.
-  // This stub keeps any external callers from erroring.
-  if (typeof window.selectCrypto_page === 'function') window.selectCrypto_page(type);
-}
-
-async function confirmPayment(bookingId) {
-  const txHash = document.getElementById('tx-hash').value.trim();
-  const err    = document.getElementById('pay-error');
-  const btn    = document.getElementById('btn-confirm');
-
-  if (!selectedCrypto) { showAuthError(err, 'Select a payment method.');  return; }
-  if (!txHash)          { showAuthError(err, 'Paste your transaction hash.'); return; }
-
-  btn.disabled    = true;
-  btn.textContent = 'Submitting…';
-  err.style.display = 'none';
-
-  // For USDT/USDC, require chain selection
-  const needsChain = (selectedCrypto === 'USDT' || selectedCrypto === 'USDC');
-  const chain = (typeof selectedChain !== 'undefined') ? selectedChain : null;
-  if (needsChain && !chain) {
-    showAuthError(err, 'Please select a network (Ethereum or Solana).');
-    btn.disabled    = false;
-    btn.textContent = 'Confirm payment';
-    return;
-  }
-
-  const totalEl  = document.querySelector('.summary-row.total .summary-val');
-  const totalUsd = totalEl ? parseFloat(totalEl.textContent.replace('$', '')) : 0;
-  const decimals = (selectedCrypto === 'USDT' || selectedCrypto === 'USDC') ? 2 : 6;
-  const amount   = (totalUsd * RATES[selectedCrypto]).toFixed(decimals);
-
-  try {
-    const res  = await fetch(`/pay/${bookingId}/submit`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        crypto_type:   selectedCrypto,
-        chain:         chain,
-        tx_hash:       txHash,
-        amount_crypto: parseFloat(amount)
-      })
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      showAuthError(err, data.error || 'Payment failed.');
-      btn.disabled    = false;
-      btn.textContent = 'Confirm payment';
-      return;
-    }
-    window.location.href = data.pending_url || `/booking/${bookingId}/pending`;
-  } catch (e) {
-    showAuthError(err, 'Network error — please try again.');
-    btn.disabled    = false;
-    btn.textContent = 'Confirm payment';
-  }
-}
+// selectCrypto is defined in payment.html
 
 // ── Dashboard ─────────────────────────────────────────
 async function cancelBooking(bookingId) {
