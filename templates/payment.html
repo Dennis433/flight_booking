@@ -116,7 +116,7 @@
 
     <div class="auth-error" id="pay-error"></div>
 
-    <button class="btn-confirm" id="btn-confirm" style="display:none" onclick="confirmPayment('{{ booking.id }}')">
+    <button class="btn-confirm" id="btn-confirm" style="display:none" onclick="handleConfirmPayment()">
       Confirm payment
     </button>
 
@@ -437,6 +437,72 @@ function copyActiveAddress(btn) {
       btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
     }, 2500);
   });
+}
+
+// ── Self-contained payment submit ─────────────────────
+// Fully self-contained — no dependency on main.js variables.
+async function handleConfirmPayment() {
+  const BOOKING_ID = '{{ booking.id }}';
+  const txHash     = (document.getElementById('tx-hash')?.value || '').trim();
+  const errEl      = document.getElementById('pay-error');
+  const btn        = document.getElementById('btn-confirm');
+
+  function showErr(msg) {
+    errEl.textContent   = msg;
+    errEl.style.display = 'block';
+    errEl.classList.add('show');
+  }
+
+  errEl.style.display = 'none';
+  errEl.classList.remove('show');
+
+  if (!selectedCrypto) { showErr('Please select a payment currency.'); return; }
+  if (!txHash)          { showErr('Please paste your transaction hash.'); return; }
+
+  const needsChain = selectedCrypto === 'USDT' || selectedCrypto === 'USDC';
+  if (needsChain && !selectedChain) {
+    showErr('Please select a network (Ethereum or Solana).');
+    return;
+  }
+
+  btn.disabled    = true;
+  btn.textContent = 'Submitting…';
+
+  const RATES    = { BTC: 0.000015, ETH: 0.00035, SOL: 0.065, USDT: 1.0, USDC: 1.0 };
+  const totalEl  = document.querySelector('.summary-row.total .summary-val');
+  const totalUsd = totalEl ? parseFloat(totalEl.textContent.replace(/[^0-9.]/g, '')) : 0;
+  const decimals = (selectedCrypto === 'USDT' || selectedCrypto === 'USDC') ? 2 : 6;
+  const amount   = (totalUsd * RATES[selectedCrypto]).toFixed(decimals);
+
+  try {
+    const res = await fetch('/pay/' + BOOKING_ID + '/submit', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        crypto_type:   selectedCrypto,
+        chain:         selectedChain || null,
+        tx_hash:       txHash,
+        amount_crypto: parseFloat(amount)
+      })
+    });
+
+    let data = {};
+    try { data = await res.json(); } catch(e) {}
+
+    if (!res.ok) {
+      showErr(data.error || 'Payment submission failed. Please try again.');
+      btn.disabled    = false;
+      btn.textContent = 'Confirm payment';
+      return;
+    }
+
+    window.location.href = data.pending_url || '/booking/' + BOOKING_ID + '/pending';
+
+  } catch (e) {
+    showErr('Network error — check your connection and try again.');
+    btn.disabled    = false;
+    btn.textContent = 'Confirm payment';
+  }
 }
 </script>
 
