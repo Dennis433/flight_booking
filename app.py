@@ -286,13 +286,103 @@ def airport_search():
     } for a in results])
 
 
+# ─── Flight Generation ─────────────────────────────────────
+
+def _generate_flights_for_route(origin_airport, destination_airport, date):
+    """
+    Auto-generate realistic flights for any route/date that has none in the DB.
+    Uses the two IATA codes + date as a deterministic seed so the same flights
+    always appear for the same search — no randomness between page loads.
+    Saves them to the DB so bookings can reference them normally.
+    """
+    import uuid, random as _random
+    from datetime import datetime, timedelta
+
+    AIRLINES = [
+        ('SC', 'SkyChain Airways'),
+        ('SK', 'SkyChain Express'),
+        ('SX', 'SkyChain Global'),
+        ('BA', 'British Airways'),
+        ('AF', 'Air France'),
+        ('EK', 'Emirates'),
+        ('QR', 'Qatar Airways'),
+        ('LH', 'Lufthansa'),
+    ]
+    CABINS = ['economy', 'business', 'first']
+    PRICES = {'economy': (199, 950), 'business': (900, 4500), 'first': (3500, 14000)}
+    HOURS  = [6, 7, 9, 10, 12, 14, 16, 18, 20, 22]
+
+    # Deterministic seed: same route+date always produces same flights
+    seed_str = f"{origin_airport.iata_code}{destination_airport.iata_code}{date}"
+    rng = _random.Random(seed_str)
+
+    # Estimate flight duration from lat/lng if available, else default 3h
+    try:
+        import math
+        lat1, lon1 = math.radians(float(origin_airport.lat)),      math.radians(float(origin_airport.lng))
+        lat2, lon2 = math.radians(float(destination_airport.lat)), math.radians(float(destination_airport.lng))
+        dlat, dlon = lat2 - lat1, lon2 - lon1
+        a        = math.sin(dlat/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2
+        dist_km  = 6371 * 2 * math.asin(math.sqrt(a))
+        base_hrs = max(1.0, round(dist_km / 850 + 0.5, 1))   # ~850 km/h cruise
+    except Exception:
+        base_hrs = 3.0
+
+    try:
+        search_date = datetime.strptime(date, '%Y-%m-%d')
+    except Exception:
+        search_date = datetime.utcnow()
+
+    new_flights = []
+    # Generate 3 airlines × 3 cabins = 9 flights per day
+    airlines_today = rng.sample(AIRLINES, min(3, len(AIRLINES)))
+    for airline_code, _ in airlines_today:
+        flight_num = f"{airline_code}{rng.randint(100, 999)}"
+        hour       = rng.choice(HOURS)
+        departure  = search_date.replace(hour=hour, minute=rng.choice([0, 15, 30, 45]),
+                                         second=0, microsecond=0)
+        jitter     = rng.uniform(-0.25, 0.5)          # ±15–30 min realistic variation
+        arrival    = departure + timedelta(hours=base_hrs + jitter)
+
+        for cabin in CABINS:
+            low, high = PRICES[cabin]
+            # Price scales slightly with distance
+            dist_mult = min(2.0, max(0.7, base_hrs / 4))
+            price     = round(rng.uniform(low, high) * dist_mult, 2)
+            seats     = rng.randint(20, 180)
+
+            flight = Flight(
+                id              = str(uuid.UUID(int=rng.getrandbits(128))),
+                flight_number   = flight_num,
+                origin_id       = origin_airport.id,
+                destination_id  = destination_airport.id,
+                departure_time  = departure,
+                arrival_time    = arrival,
+                price_usd       = price,
+                seats_available = seats,
+                cabin_class     = cabin,
+            )
+            new_flights.append(flight)
+
+    if new_flights:
+        try:
+            db.session.bulk_save_objects(new_flights)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+    return new_flights
+
+
 # ─── Flight Search ─────────────────────────────────────────
 
 @app.route('/search')
 def search():
+    from datetime import datetime, timedelta
+
     origin      = request.args.get('origin', '').upper()
     destination = request.args.get('destination', '').upper()
-    date        = request.args.get('date')
+    date        = request.args.get('date', '')
 
     origin_airport      = Airport.query.filter_by(iata_code=origin).first()
     destination_airport = Airport.query.filter_by(iata_code=destination).first()
@@ -300,25 +390,30 @@ def search():
     if not origin_airport or not destination_airport:
         return jsonify({'error': 'Invalid airport codes'}), 400
 
-    from datetime import datetime, timedelta
-    flights_q = Flight.query.filter_by(
-        origin_id      = origin_airport.id,
-        destination_id = destination_airport.id
-    )
-    # Filter by date if provided, otherwise show upcoming flights only
+    # Resolve search date — default to tomorrow if none given
     if date:
         try:
             search_date = datetime.strptime(date, '%Y-%m-%d')
-            flights_q   = flights_q.filter(
-                Flight.departure_time >= search_date,
-                Flight.departure_time <  search_date + timedelta(days=1)
-            )
         except ValueError:
-            pass
+            search_date = datetime.utcnow() + timedelta(days=1)
     else:
-        flights_q = flights_q.filter(Flight.departure_time >= datetime.utcnow())
+        search_date = datetime.utcnow() + timedelta(days=1)
+        date = search_date.strftime('%Y-%m-%d')
 
-    flights = flights_q.order_by(Flight.departure_time).all()
+    day_start = search_date.replace(hour=0,  minute=0,  second=0,  microsecond=0)
+    day_end   = search_date.replace(hour=23, minute=59, second=59, microsecond=0)
+
+    # Look for existing flights on this route + day
+    flights = Flight.query.filter(
+        Flight.origin_id      == origin_airport.id,
+        Flight.destination_id == destination_airport.id,
+        Flight.departure_time >= day_start,
+        Flight.departure_time <= day_end,
+    ).order_by(Flight.departure_time).all()
+
+    # None found — generate them on the fly and save to DB
+    if not flights:
+        flights = _generate_flights_for_route(origin_airport, destination_airport, date)
 
     results = [{
         'id':            f.id,
