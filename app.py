@@ -300,10 +300,25 @@ def search():
     if not origin_airport or not destination_airport:
         return jsonify({'error': 'Invalid airport codes'}), 400
 
-    flights = Flight.query.filter_by(
+    from datetime import datetime, timedelta
+    flights_q = Flight.query.filter_by(
         origin_id      = origin_airport.id,
         destination_id = destination_airport.id
-    ).all()
+    )
+    # Filter by date if provided, otherwise show upcoming flights only
+    if date:
+        try:
+            search_date = datetime.strptime(date, '%Y-%m-%d')
+            flights_q   = flights_q.filter(
+                Flight.departure_time >= search_date,
+                Flight.departure_time <  search_date + timedelta(days=1)
+            )
+        except ValueError:
+            pass
+    else:
+        flights_q = flights_q.filter(Flight.departure_time >= datetime.utcnow())
+
+    flights = flights_q.order_by(Flight.departure_time).all()
 
     results = [{
         'id':            f.id,
