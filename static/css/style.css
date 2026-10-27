@@ -162,6 +162,9 @@ body {
   backdrop-filter: blur(20px);
   text-align: left;
   margin-bottom: 1.5rem;
+  overflow: visible;
+  position: relative;
+  z-index: 10;
 }
 
 .search-row {
@@ -169,6 +172,7 @@ body {
   grid-template-columns: 1fr 1fr 1fr 0.6fr;
   gap: 1rem;
   margin-bottom: 1.25rem;
+  overflow: visible;
 }
 
 .input-group {
@@ -221,9 +225,10 @@ body {
   background: #0D1120;
   border: 1px solid var(--border-h);
   border-radius: var(--radius-sm);
-  z-index: 200;
-  overflow: hidden;
+  z-index: 9999;
+  overflow: visible;
   display: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
 }
 
 .ac-item {
