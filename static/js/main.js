@@ -68,7 +68,8 @@ function setupAutocomplete(inputId, dropdownId) {
   function markInvalid() {
     input.dataset.iata = '';
     input.classList.add('ac-invalid');
-    input.focus();
+    // Do NOT call input.focus() here — it steals focus when the user
+    // is tabbing or clicking into the next field (e.g. From → To).
   }
 
   input.addEventListener('input', () => {
@@ -127,9 +128,14 @@ function setupAutocomplete(inputId, dropdownId) {
 
   input._tryResolve = tryResolve;
 
-  input.addEventListener('blur', () => {
+  input.addEventListener('blur', (e) => {
     setTimeout(() => {
       close();
+      // Only validate if the user moved focus somewhere other than
+      // the origin/destination inputs — prevents From stealing focus
+      // when the user clicks into the To field (and vice-versa).
+      const focusedId = document.activeElement?.id;
+      if (focusedId === 'origin' || focusedId === 'destination') return;
       if (!input.dataset.iata) tryResolve();
     }, 150);
   });
