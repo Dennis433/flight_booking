@@ -829,12 +829,64 @@ def run_migrations():
         print(f'[migrate] migration error (non-fatal): {e}')
 
 
+# ─── Airport Seeder ────────────────────────────────────────
+
+def seed_airports_if_empty():
+    """
+    Fetch airports from GitHub and insert them if the table is empty.
+    Runs once on deploy — safe to call on every startup (no-op if data exists).
+    """
+    try:
+        count = db.session.execute(db.text('SELECT COUNT(*) FROM airports')).scalar()
+        if count and count > 0:
+            print(f'[seed] Airports already seeded ({count} rows) — skipping.')
+            return
+
+        print('[seed] Airports table is empty — fetching from GitHub...')
+        AIRPORTS_URL = 'https://raw.githubusercontent.com/mwgg/Airports/master/airports.json'
+
+        response = httpx.get(AIRPORTS_URL, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+
+        airports = {}
+        for code, info in data.items():
+            iata = info.get('iata', '').strip().upper()
+            if not iata or len(iata) != 3:
+                continue
+            airports[iata] = Airport(
+                iata_code = iata,
+                name      = (info.get('name', '') or '')[:200],
+                city      = (info.get('city', '') or '')[:100],
+                country   = (info.get('country', '') or '')[:100],
+                latitude  = float(info.get('lat', 0.0) or 0.0),
+                longitude = float(info.get('lon', 0.0) or 0.0),
+            )
+
+        rows = list(airports.values())
+        print(f'[seed] Inserting {len(rows)} airports...')
+
+        BATCH = 200
+        for i in range(0, len(rows), BATCH):
+            db.session.bulk_save_objects(rows[i:i + BATCH])
+            db.session.commit()
+            print(f'[seed]   {min(i + BATCH, len(rows))}/{len(rows)}')
+
+        print(f'[seed] Done — {len(rows)} airports seeded successfully.')
+
+    except Exception as e:
+        db.session.rollback()
+        print(f'[seed] WARNING: Could not seed airports: {e}')
+        import traceback; traceback.print_exc()
+
+
 # ─── Init ──────────────────────────────────────────────────
 
 with app.app_context():
     try:
         db.create_all()
         run_migrations()
+        seed_airports_if_empty()
         print('[startup] Database initialised successfully.')
     except Exception as e:
         print(f'[startup] WARNING: Could not initialise database on startup: {e}')
