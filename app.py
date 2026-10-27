@@ -832,8 +832,13 @@ def run_migrations():
 # ─── Init ──────────────────────────────────────────────────
 
 with app.app_context():
-    db.create_all()
-    run_migrations()
+    try:
+        db.create_all()
+        run_migrations()
+        print('[startup] Database initialised successfully.')
+    except Exception as e:
+        print(f'[startup] WARNING: Could not initialise database on startup: {e}')
+        print('[startup] The app will still start — DB operations will retry on first request.')
 
 if __name__ == '__main__':
     app.run(debug=True)
