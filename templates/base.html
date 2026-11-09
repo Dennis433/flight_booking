@@ -87,19 +87,33 @@
     }
 
     .notif-panel {
-        position: absolute;
-        top: calc(100% + 10px);
+        position: fixed;
+        top: 56px;
         right: 0;
-        width: 360px;
+        left: 0;
+        width: 100%;
+        max-width: 380px;
+        margin-left: auto;
         background: var(--bg-2);
         border: 1px solid var(--border);
         border-radius: var(--radius);
         box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-        z-index: 200;
+        z-index: 9999;
         display: none;
         overflow: hidden;
     }
     .notif-panel.open { display: block; }
+
+    /* On mobile: take full width with small side margins */
+    @media (max-width: 480px) {
+        .notif-panel {
+            left: 8px;
+            right: 8px;
+            width: auto;
+            max-width: none;
+            top: 60px;
+        }
+    }
 
     .notif-panel-header {
         display: flex;
