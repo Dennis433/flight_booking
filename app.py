@@ -382,10 +382,16 @@ def _generate_flights_for_route(origin_airport, destination_airport, date):
 
     if new_flights:
         try:
-            db.session.bulk_save_objects(new_flights)
+            db.session.add_all(new_flights)
             db.session.commit()
+            # Refresh so relationship attributes (f.origin, f.destination) are
+            # populated — bulk_save_objects bypasses the identity map and leaves
+            # them as None; add_all + expire_all fixes that.
+            for f in new_flights:
+                db.session.refresh(f)
         except Exception:
             db.session.rollback()
+            return []
 
     return new_flights
 
@@ -443,7 +449,7 @@ def search():
         'price_usd':     f.price_usd,
         'seats':         f.seats_available,
         'cabin':         f.cabin_class
-    } for f in flights]
+    } for f in flights if f.origin and f.destination]
 
     return jsonify(results)
 
@@ -494,7 +500,7 @@ def search_return():
                 'departure': f.departure_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
                 'arrival':   f.arrival_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
                 'price_usd': f.price_usd, 'seats': f.seats_available, 'cabin': f.cabin_class
-               } for f in flights]
+               } for f in flights if f.origin and f.destination]
 
     return jsonify(results)
 
