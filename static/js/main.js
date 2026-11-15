@@ -144,13 +144,16 @@ function setupAutocomplete(inputId, dropdownId) {
 setupAutocomplete('origin', 'origin-dropdown');
 setupAutocomplete('destination', 'destination-dropdown');
 
-// ── Search + Filter/Sort ──────────────────────────────
+// ── Search + Stepper ──────────────────────────────────
 let allFlights    = [];
+let returnFlights = [];
 let paxCount      = 1;
 let lastSearchKey = '';
 
-let returnFlights    = [];
-let selectedReturnId = null;
+// Stepper state: 'outbound' | 'return' — only used for round trips
+let stepperStep      = 'outbound';
+let selectedOutbound = null; // full flight object chosen in step 1
+let selectedReturnId = null; // id chosen in step 2
 
 async function searchFlights() {
   const originInput = document.getElementById('origin');
@@ -191,6 +194,8 @@ async function searchFlights() {
   if (searchKey === lastSearchKey) return;
   lastSearchKey    = searchKey;
   selectedReturnId = null;
+  selectedOutbound = null;
+  stepperStep      = 'outbound';
   returnFlights    = [];
 
   resultsEl.innerHTML = `<div class="state-empty">
@@ -207,7 +212,6 @@ async function searchFlights() {
 
     allFlights = data;
 
-    // Also fetch return flights if round-trip selected
     if (isReturn) {
       try {
         const rRes  = await fetch(`/search/return?origin=${origin}&destination=${destination}&date=${returnDate}`);
@@ -225,14 +229,40 @@ async function searchFlights() {
   }
 }
 
+// ── Stepper header ────────────────────────────────────
+function renderStepperHeader(currentStep) {
+  const isReturn = returnFlights.length > 0;
+  if (!isReturn) return '';
+
+  const steps = [
+    { key: 'outbound', label: 'Outbound' },
+    { key: 'return',   label: 'Return'   },
+  ];
+
+  return `<div class="stepper-header">
+    ${steps.map((s, i) => {
+      const done    = (s.key === 'outbound' && currentStep === 'return');
+      const active  = s.key === currentStep;
+      const cls     = done ? 'stepper-step done' : active ? 'stepper-step active' : 'stepper-step';
+      const numHtml = done
+        ? `<span class="stepper-num">✓</span>`
+        : `<span class="stepper-num">${i + 1}</span>`;
+      return `<div class="${cls}">${numHtml}<span class="stepper-label">${s.label}</span></div>`;
+    }).join('<div class="stepper-line"></div>')}
+  </div>`;
+}
+
+// ── Shared filter bar ─────────────────────────────────
 function renderFiltersAndResults() {
   const resultsEl = document.getElementById('results');
-  const prices    = allFlights.map(f => f.price_usd * paxCount);
+  const srcFlights = stepperStep === 'return' ? returnFlights : allFlights;
+  const prices    = srcFlights.map(f => f.price_usd * paxCount);
   const minPrice  = Math.floor(Math.min(...prices));
   const maxPrice  = Math.ceil(Math.max(...prices));
-  const cabins    = [...new Set(allFlights.map(f => f.cabin))].sort();
+  const cabins    = [...new Set(srcFlights.map(f => f.cabin))].sort();
 
   resultsEl.innerHTML = `
+    ${renderStepperHeader(stepperStep)}
     <div class="filters-bar">
       <div class="filters-row">
         <div class="filter-group">
@@ -278,7 +308,6 @@ function renderFiltersAndResults() {
     btn.classList.add('active');
     applyFilters();
   });
-
   document.getElementById('cabin-pills').addEventListener('click', e => {
     const btn = e.target.closest('.pill[data-cabin]');
     if (!btn) return;
@@ -286,7 +315,6 @@ function renderFiltersAndResults() {
     btn.classList.add('active');
     applyFilters();
   });
-
   document.getElementById('time-pills').addEventListener('click', e => {
     const btn = e.target.closest('.pill[data-time]');
     if (!btn) return;
@@ -304,9 +332,9 @@ function onPriceSlide(val) {
 }
 
 function resetFilters() {
-  const prices   = allFlights.map(f => f.price_usd * paxCount);
-  const maxPrice = Math.ceil(Math.max(...prices));
-  const slider   = document.getElementById('price-slider');
+  const srcFlights = stepperStep === 'return' ? returnFlights : allFlights;
+  const maxPrice   = Math.ceil(Math.max(...srcFlights.map(f => f.price_usd * paxCount)));
+  const slider     = document.getElementById('price-slider');
   if (slider) {
     slider.value = maxPrice;
     document.getElementById('price-display').textContent = '$' + maxPrice.toLocaleString();
@@ -329,7 +357,9 @@ function applyFilters() {
   const list  = document.getElementById('results-list');
   if (!list) return;
 
-  let filtered = allFlights.filter(f => {
+  const srcFlights = stepperStep === 'return' ? returnFlights : allFlights;
+
+  let filtered = srcFlights.filter(f => {
     const total = f.price_usd * paxCount;
     if (total > maxPx) return false;
     if (cabin !== 'all' && f.cabin !== cabin) return false;
@@ -355,41 +385,64 @@ function applyFilters() {
     return;
   }
 
-  // Clear any inline booking error from a previous attempt
-  const prevErr = document.getElementById('book-inline-error');
-  if (prevErr) prevErr.remove();
+  // Step label above the list
+  const isReturnStep = stepperStep === 'return';
+  const headerEl = document.createElement('p');
+  headerEl.className = 'results-header' + (isReturnStep ? ' results-header-return' : '');
+  headerEl.textContent = `${filtered.length} of ${srcFlights.length} flight${srcFlights.length > 1 ? 's' : ''} — ${isReturnStep ? 'Return' : 'Outbound'}`;
+  list.appendChild(headerEl);
 
-  // If return search, show Return section first so users pick it before Outbound
-  if (returnFlights.length > 0) {
-    const returnHeader = document.createElement('p');
-    returnHeader.className = 'results-header results-header-return';
-    returnHeader.textContent = `${returnFlights.length} flight${returnFlights.length > 1 ? 's' : ''} — Return (pick first)`;
-    list.appendChild(returnHeader);
-    returnFlights.forEach(f => list.appendChild(flightCard(f, paxCount, true)));
+  // If on return step, show the chosen outbound as a summary above the list
+  if (isReturnStep && selectedOutbound) {
+    const f   = selectedOutbound;
+    const dep = new Date(f.departure + (f.departure.endsWith('Z') ? '' : 'Z'));
+    const arr = new Date(f.arrival   + (f.arrival.endsWith('Z')   ? '' : 'Z'));
+    const sumEl = document.createElement('div');
+    sumEl.className = 'stepper-outbound-summary';
+    sumEl.innerHTML = `
+      <span class="summary-check">✓</span>
+      <span class="summary-route">${f.origin} → ${f.destination}</span>
+      <span class="summary-time">${fmt(dep)} – ${fmt(arr)}</span>
+      <span class="summary-price">$${(f.price_usd * paxCount).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
+      <button class="summary-change" onclick="goBackToOutbound()">Change</button>
+    `;
+    list.insertBefore(sumEl, headerEl);
   }
 
-  const outboundHeader = document.createElement('p');
-  outboundHeader.className = 'results-header';
-  outboundHeader.textContent = `${filtered.length} of ${allFlights.length} flight${allFlights.length > 1 ? 's' : ''} — Outbound`;
-  list.appendChild(outboundHeader);
-  filtered.forEach(f => list.appendChild(flightCard(f, paxCount, false)));
+  filtered.forEach(f => list.appendChild(flightCard(f, paxCount, isReturnStep)));
 }
 
-function flightCard(f, passengers, isReturnLeg = false) {
+// Called when user picks an outbound flight on a round trip — advances to return step
+function advanceToReturn(outboundFlight) {
+  selectedOutbound = outboundFlight;
+  stepperStep      = 'return';
+  renderFiltersAndResults();
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// "Change" link on the outbound summary — go back to step 1
+function goBackToOutbound() {
+  stepperStep      = 'outbound';
+  selectedOutbound = null;
+  selectedReturnId = null;
+  renderFiltersAndResults();
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function flightCard(f, passengers, isReturnStep = false) {
   const dep      = new Date(f.departure + (f.departure.endsWith('Z') ? '' : 'Z'));
   const arr      = new Date(f.arrival   + (f.arrival.endsWith('Z')   ? '' : 'Z'));
   const dur      = duration(dep, arr);
-  const isReturn = (typeof tripType !== 'undefined' && tripType === 'return');
-  // Show per-direction price; total (×2) shown at booking step
+  const isReturn = returnFlights.length > 0;
   const perLeg   = (f.price_usd * passengers).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
   const seatsLow = f.seats > 0 && f.seats <= 5;
   const card     = document.createElement('div');
-  card.className = 'flight-card' + (isReturnLeg ? ' flight-card-return' : '');
+  card.className = 'flight-card' + (isReturnStep ? ' flight-card-return' : '');
   card.dataset.flightId = f.id;
-  if (isReturnLeg) card.dataset.returnLeg = '1';
 
-  const btnLabel   = isReturnLeg ? 'Select return' : (isReturn ? 'Select outbound' : 'Select');
-  const priceLabel = isReturn ? (isReturnLeg ? 'Return leg' : 'Outbound leg') : 'from';
+  const btnLabel   = isReturnStep ? 'Select return' : (isReturn ? 'Select outbound' : 'Select');
+  const priceLabel = isReturn ? (isReturnStep ? 'Return leg' : 'Outbound leg') : 'from';
+  const fData      = JSON.stringify(f).replace(/'/g, '&#39;');
 
   card.innerHTML = `
     <div>
@@ -414,8 +467,11 @@ function flightCard(f, passengers, isReturnLeg = false) {
         <span class="cabin-badge">${f.cabin}</span>
         ${seatsLow ? `<span class="seats-warn">${f.seats} left</span>` : ''}
       </div>
-      <button class="btn-book ${isReturnLeg ? 'btn-book-return' : ''}"
-        onclick="${isReturnLeg ? `selectReturn('${f.id}', this)` : `bookFlight('${f.id}', ${passengers})`}">
+      <button class="btn-book ${isReturnStep ? 'btn-book-return' : ''}"
+        onclick="${isReturnStep
+          ? `bookFlight('${f.id}', ${passengers})`
+          : (isReturn ? `advanceToReturn(${fData})` : `bookFlight('${f.id}', ${passengers})`)
+        }">
         ${btnLabel}
       </button>
     </div>
@@ -423,48 +479,13 @@ function flightCard(f, passengers, isReturnLeg = false) {
   return card;
 }
 
-function selectReturn(returnFlightId, btn) {
-  // Highlight selected return card
-  document.querySelectorAll('.flight-card-return').forEach(c => c.classList.remove('selected-return'));
-  btn.closest('.flight-card-return').classList.add('selected-return');
-  selectedReturnId = returnFlightId;
-
-  // Update all outbound Select buttons to proceed with this return
-  document.querySelectorAll('.btn-book:not(.btn-book-return)').forEach(b => {
-    const card = b.closest('.flight-card');
-    if (card) {
-      const fid = card.dataset.flightId;
-      b.onclick = () => bookFlight(fid, paxCount);
-    }
-  });
-
-  // Show a "continue" banner if not already there
-  let banner = document.getElementById('return-selected-banner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = 'return-selected-banner';
-    banner.className = 'return-banner';
-    banner.innerHTML = `<span>✓ Return flight selected — now pick your outbound flight below</span>`;
-    document.getElementById('results').prepend(banner);
-  }
-}
-
 async function bookFlight(flightId, passengers) {
-  const isReturn = (typeof tripType !== 'undefined' && tripType === 'return');
+  const isReturn = returnFlights.length > 0;
 
-  // If return trip but no return flight selected yet, show inline error
-  if (isReturn && !selectedReturnId) {
-    let errEl = document.getElementById('book-inline-error');
-    if (!errEl) {
-      errEl = document.createElement('div');
-      errEl.id = 'book-inline-error';
-      errEl.className = 'return-banner return-banner--error';
-      const resultsEl = document.getElementById('results');
-      resultsEl.prepend(errEl);
-    }
-    errEl.innerHTML = `<span>⚠ Please select a return flight first — it's listed at the top of the results.</span>`;
-    errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    return;
+  // On return step, store the chosen return id then book the outbound
+  if (isReturn && stepperStep === 'return') {
+    selectedReturnId = flightId;
+    flightId         = selectedOutbound.id;
   }
 
   const res  = await fetch(`/book/${flightId}`, {
@@ -475,22 +496,25 @@ async function bookFlight(flightId, passengers) {
   const data = await res.json();
   if (res.status === 401) { window.location.href = '/login'; return; }
   if (!res.ok) {
-    let errEl = document.getElementById('book-inline-error');
-    if (!errEl) {
-      errEl = document.createElement('div');
-      errEl.id = 'book-inline-error';
-      errEl.className = 'return-banner return-banner--error';
-      const resultsEl = document.getElementById('results');
-      resultsEl.prepend(errEl);
-    }
-    errEl.innerHTML = `<span>⚠ ${data.error}</span>`;
-    errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showStepError(data.error);
     return;
   }
 
   let url = `/extras/${flightId}?passengers=${passengers}`;
   if (isReturn && selectedReturnId) url += `&return_flight_id=${selectedReturnId}`;
   window.location.href = url;
+}
+
+function showStepError(msg) {
+  let errEl = document.getElementById('book-inline-error');
+  if (!errEl) {
+    errEl = document.createElement('div');
+    errEl.id = 'book-inline-error';
+    errEl.className = 'return-banner return-banner--error';
+    document.getElementById('results').prepend(errEl);
+  }
+  errEl.innerHTML = `<span>⚠ ${msg}</span>`;
+  errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function fmt(d) {
