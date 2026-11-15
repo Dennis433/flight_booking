@@ -64,6 +64,14 @@ class Booking(db.Model):
     contact_email = db.Column(db.String(120), nullable=True, default=None)
     contact_phone = db.Column(db.String(30),  nullable=True, default=None)
 
+    # ── Return trip fields ────────────────────────────────────────────────────
+    # is_return:        True when user booked a return (round-trip) ticket.
+    # return_flight_id: The auto-generated return flight for the same route.
+    is_return        = db.Column(db.Boolean,    nullable=False, default=False)
+    return_flight_id = db.Column(db.String(36), db.ForeignKey('flights.id'), nullable=True, default=None)
+
+    return_flight    = db.relationship('Flight', foreign_keys=[return_flight_id])
+
     # ── Check-in fields ───────────────────────────────────────────────────────
     # seat_number:      assigned at check-in (e.g. "24A"). Null until checked in.
     # checked_in:       True once the passenger has completed web check-in.
