@@ -896,6 +896,107 @@ switchTab('popular');
   border-color: rgba(220,38,38,0.35);
   color: #fca5a5;
 }
+
+/* ── Stepper ─────────────────────────────────────────── */
+.stepper-header {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 1.5rem;
+  padding: 1rem 0 0.5rem;
+}
+.stepper-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.stepper-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  flex-shrink: 0;
+  transition: background 0.2s, color 0.2s;
+}
+.stepper-label {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.85rem;
+  color: var(--text-3);
+  transition: color 0.2s;
+}
+.stepper-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  margin: 0 0.75rem;
+  min-width: 2rem;
+}
+.stepper-step.active .stepper-num {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+.stepper-step.active .stepper-label {
+  color: var(--text-1);
+  font-weight: 600;
+}
+.stepper-step.done .stepper-num {
+  background: rgba(99,102,241,0.15);
+  border-color: rgba(99,102,241,0.4);
+  color: var(--blue-l);
+}
+.stepper-step.done .stepper-label {
+  color: var(--blue-l);
+}
+
+/* Chosen outbound summary strip on the return step */
+.stepper-outbound-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  margin-bottom: 1rem;
+  background: rgba(37,99,235,0.07);
+  border: 1px solid rgba(37,99,235,0.2);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  flex-wrap: wrap;
+}
+.summary-check {
+  color: var(--blue-l);
+  font-size: 0.9rem;
+}
+.summary-route {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.summary-time { color: var(--text-2); }
+.summary-price {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-left: auto;
+}
+.summary-change {
+  background: none;
+  border: 1px solid var(--border-h);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-size: 0.78rem;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.summary-change:hover { border-color: var(--blue-l); color: var(--blue-l); }
 .trip-type-badge {
   display: inline-flex;
   align-items: center;
