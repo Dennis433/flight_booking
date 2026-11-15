@@ -355,17 +355,24 @@ function applyFilters() {
     return;
   }
 
-  list.innerHTML = `<p class="results-header">${filtered.length} of ${allFlights.length} flight${allFlights.length > 1 ? 's' : ''} — Outbound</p>`;
-  filtered.forEach(f => list.appendChild(flightCard(f, paxCount, false)));
+  // Clear any inline booking error from a previous attempt
+  const prevErr = document.getElementById('book-inline-error');
+  if (prevErr) prevErr.remove();
 
-  // If return search, append return flight section
+  // If return search, show Return section first so users pick it before Outbound
   if (returnFlights.length > 0) {
     const returnHeader = document.createElement('p');
     returnHeader.className = 'results-header results-header-return';
-    returnHeader.textContent = `${returnFlights.length} flight${returnFlights.length > 1 ? 's' : ''} — Return`;
+    returnHeader.textContent = `${returnFlights.length} flight${returnFlights.length > 1 ? 's' : ''} — Return (pick first)`;
     list.appendChild(returnHeader);
     returnFlights.forEach(f => list.appendChild(flightCard(f, paxCount, true)));
   }
+
+  const outboundHeader = document.createElement('p');
+  outboundHeader.className = 'results-header';
+  outboundHeader.textContent = `${filtered.length} of ${allFlights.length} flight${allFlights.length > 1 ? 's' : ''} — Outbound`;
+  list.appendChild(outboundHeader);
+  filtered.forEach(f => list.appendChild(flightCard(f, paxCount, false)));
 }
 
 function flightCard(f, passengers, isReturnLeg = false) {
@@ -437,7 +444,7 @@ function selectReturn(returnFlightId, btn) {
     banner = document.createElement('div');
     banner.id = 'return-selected-banner';
     banner.className = 'return-banner';
-    banner.innerHTML = `<span>✓ Return flight selected — now pick your outbound flight above</span>`;
+    banner.innerHTML = `<span>✓ Return flight selected — now pick your outbound flight below</span>`;
     document.getElementById('results').prepend(banner);
   }
 }
@@ -445,9 +452,18 @@ function selectReturn(returnFlightId, btn) {
 async function bookFlight(flightId, passengers) {
   const isReturn = (typeof tripType !== 'undefined' && tripType === 'return');
 
-  // If return trip but no return flight selected yet, warn
+  // If return trip but no return flight selected yet, show inline error
   if (isReturn && !selectedReturnId) {
-    alert('Please select a return flight first (scroll down to the Return section).');
+    let errEl = document.getElementById('book-inline-error');
+    if (!errEl) {
+      errEl = document.createElement('div');
+      errEl.id = 'book-inline-error';
+      errEl.className = 'return-banner return-banner--error';
+      const resultsEl = document.getElementById('results');
+      resultsEl.prepend(errEl);
+    }
+    errEl.innerHTML = `<span>⚠ Please select a return flight first — it's listed at the top of the results.</span>`;
+    errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
 
@@ -458,7 +474,19 @@ async function bookFlight(flightId, passengers) {
   });
   const data = await res.json();
   if (res.status === 401) { window.location.href = '/login'; return; }
-  if (!res.ok) { alert(data.error); return; }
+  if (!res.ok) {
+    let errEl = document.getElementById('book-inline-error');
+    if (!errEl) {
+      errEl = document.createElement('div');
+      errEl.id = 'book-inline-error';
+      errEl.className = 'return-banner return-banner--error';
+      const resultsEl = document.getElementById('results');
+      resultsEl.prepend(errEl);
+    }
+    errEl.innerHTML = `<span>⚠ ${data.error}</span>`;
+    errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
 
   let url = `/extras/${flightId}?passengers=${passengers}`;
   if (isReturn && selectedReturnId) url += `&return_flight_id=${selectedReturnId}`;
