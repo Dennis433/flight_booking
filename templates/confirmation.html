@@ -24,6 +24,12 @@
         <div class="eticket-ref">{{ booking.id[:8].upper() }}</div>
       </div>
 
+      {% if booking.is_return %}
+      <div class="eticket-trip-badge">↔ Round Trip</div>
+      {% endif %}
+
+      <!-- Outbound leg -->
+      {% if booking.is_return %}<div class="eticket-leg-label">Outbound</div>{% endif %}
       <div class="eticket-route">
         <div class="eticket-port">
           <div class="eticket-iata">{{ booking.flight.origin.iata_code }}</div>
@@ -43,6 +49,30 @@
         </div>
       </div>
 
+      <!-- Return leg -->
+      {% if booking.is_return and booking.return_flight %}
+      <div class="eticket-leg-divider"></div>
+      <div class="eticket-leg-label">Return</div>
+      <div class="eticket-route">
+        <div class="eticket-port">
+          <div class="eticket-iata">{{ booking.return_flight.origin.iata_code }}</div>
+          <div class="eticket-city">{{ booking.return_flight.origin.city }}</div>
+          <div class="eticket-time">{{ booking.return_flight.departure_time.strftime('%H:%M') }}</div>
+        </div>
+        <div class="eticket-mid">
+          <div class="eticket-line">
+            <div class="eticket-plane">✈</div>
+          </div>
+          <div class="eticket-flight-num">{{ booking.return_flight.flight_number }}</div>
+        </div>
+        <div class="eticket-port eticket-port-right">
+          <div class="eticket-iata">{{ booking.return_flight.destination.iata_code }}</div>
+          <div class="eticket-city">{{ booking.return_flight.destination.city }}</div>
+          <div class="eticket-time">{{ booking.return_flight.arrival_time.strftime('%H:%M') }}</div>
+        </div>
+      </div>
+      {% endif %}
+
       <div class="eticket-divider">
         <div class="eticket-notch eticket-notch-left"></div>
         <div class="eticket-dash"></div>
@@ -52,9 +82,19 @@
       <!-- Core flight details -->
       <div class="eticket-details">
         <div class="eticket-detail">
-          <div class="eticket-detail-label">Date</div>
+          <div class="eticket-detail-label">Trip type</div>
+          <div class="eticket-detail-val">{{ 'Round Trip' if booking.is_return else 'One Way' }}</div>
+        </div>
+        <div class="eticket-detail">
+          <div class="eticket-detail-label">Outbound date</div>
           <div class="eticket-detail-val">{{ booking.flight.departure_time.strftime('%d %b %Y') }}</div>
         </div>
+        {% if booking.is_return and booking.return_flight %}
+        <div class="eticket-detail">
+          <div class="eticket-detail-label">Return date</div>
+          <div class="eticket-detail-val">{{ booking.return_flight.departure_time.strftime('%d %b %Y') }}</div>
+        </div>
+        {% endif %}
         <div class="eticket-detail">
           <div class="eticket-detail-label">Departure</div>
           <div class="eticket-detail-val">{{ booking.flight.departure_time.strftime('%H:%M') }}</div>
@@ -136,6 +176,35 @@
 </section>
 
 <style>
+/* Return trip elements */
+.eticket-trip-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--blue-l);
+  background: rgba(37,99,235,0.1);
+  border: 1px solid rgba(37,99,235,0.25);
+  border-radius: 100px;
+  padding: 0.2rem 0.75rem;
+  margin-bottom: 1rem;
+}
+.eticket-leg-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+.eticket-leg-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 1rem 0;
+  border-style: dashed;
+}
+
 /* Receipt block inside the ticket */
 .eticket-receipt {
   border-top: 1px dashed rgba(255,255,255,0.12);
