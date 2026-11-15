@@ -44,7 +44,7 @@ class Flight(db.Model):
 
     origin      = db.relationship('Airport', foreign_keys=[origin_id])
     destination = db.relationship('Airport', foreign_keys=[destination_id])
-    bookings    = db.relationship('Booking', backref='flight', lazy=True)
+    bookings    = db.relationship('Booking', foreign_keys='Booking.flight_id', backref='flight', lazy=True)
 
 
 class Booking(db.Model):
@@ -70,7 +70,7 @@ class Booking(db.Model):
     is_return        = db.Column(db.Boolean,    nullable=False, default=False)
     return_flight_id = db.Column(db.String(36), db.ForeignKey('flights.id'), nullable=True, default=None)
 
-    return_flight    = db.relationship('Flight', foreign_keys=[return_flight_id])
+    return_flight    = db.relationship('Flight', foreign_keys='Booking.return_flight_id')
 
     # ── Check-in fields ───────────────────────────────────────────────────────
     # seat_number:      assigned at check-in (e.g. "24A"). Null until checked in.
