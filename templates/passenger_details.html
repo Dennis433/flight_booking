@@ -10,11 +10,21 @@
     <div class="extras-header">
       <a href="/" class="back-link">← Back to search</a>
       <h2>Passenger details</h2>
-      <p class="extras-sub">
-        {{ flight.origin.iata_code }} → {{ flight.destination.iata_code }} ·
-        {{ flight.departure_time.strftime('%d %b %Y') }} ·
-        {{ passengers }} passenger{{ 's' if passengers > 1 }}
-      </p>
+      {% if return_flight %}
+        <div class="trip-type-badge">↔ Round Trip</div>
+        <p class="extras-sub">
+          <strong>Outbound:</strong> {{ flight.origin.iata_code }} → {{ flight.destination.iata_code }} · {{ flight.departure_time.strftime('%d %b %Y') }}<br>
+          <strong>Return:</strong> {{ return_flight.origin.iata_code }} → {{ return_flight.destination.iata_code }} · {{ return_flight.departure_time.strftime('%d %b %Y') }}<br>
+          {{ passengers }} passenger{{ 's' if passengers > 1 }}
+        </p>
+      {% else %}
+        <div class="trip-type-badge trip-type-oneway">→ One Way</div>
+        <p class="extras-sub">
+          {{ flight.origin.iata_code }} → {{ flight.destination.iata_code }} ·
+          {{ flight.departure_time.strftime('%d %b %Y') }} ·
+          {{ passengers }} passenger{{ 's' if passengers > 1 }}
+        </p>
+      {% endif %}
     </div>
 
     <div id="pax-error" class="auth-error"></div>
@@ -71,11 +81,23 @@
     <!-- Summary bar -->
     <div class="extras-summary">
       <div class="extras-summary-left">
-        <div class="extras-base">{{ passengers }} passenger{{ 's' if passengers > 1 }} · {{ flight.cabin_class|capitalize }}</div>
+        <div class="extras-base">
+          {{ passengers }} passenger{{ 's' if passengers > 1 }} · {{ flight.cabin_class|capitalize }}
+          {% if return_flight %} · Round Trip{% endif %}
+        </div>
+        {% if return_flight %}
+        <div class="extras-total-label" style="font-size:0.72rem;color:var(--text-3)">
+          Outbound ${{ "%.2f"|format(flight.price_usd * passengers) }} + Return ${{ "%.2f"|format(return_flight.price_usd * passengers) }}
+        </div>
+        {% endif %}
         <div class="extras-total-label">Total</div>
+        {% if return_flight %}
+        <div class="extras-total">${{ "%.2f"|format((flight.price_usd + return_flight.price_usd) * passengers) }}</div>
+        {% else %}
         <div class="extras-total">${{ "%.2f"|format(flight.price_usd * passengers) }}</div>
+        {% endif %}
       </div>
-      <button class="btn-continue" onclick="submitPassengers('{{ flight.id }}', {{ passengers }})">
+      <button class="btn-continue" onclick="submitPassengers('{{ flight.id }}', {{ passengers }}, '{{ return_flight.id if return_flight else '' }}')">
         Continue to payment
       </button>
     </div>
