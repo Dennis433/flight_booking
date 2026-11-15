@@ -442,7 +442,6 @@ function flightCard(f, passengers, isReturnStep = false) {
 
   const btnLabel   = isReturnStep ? 'Select return' : (isReturn ? 'Select outbound' : 'Select');
   const priceLabel = isReturn ? (isReturnStep ? 'Return leg' : 'Outbound leg') : 'from';
-  const fData      = JSON.stringify(f).replace(/'/g, '&#39;');
 
   card.innerHTML = `
     <div>
@@ -467,15 +466,20 @@ function flightCard(f, passengers, isReturnStep = false) {
         <span class="cabin-badge">${f.cabin}</span>
         ${seatsLow ? `<span class="seats-warn">${f.seats} left</span>` : ''}
       </div>
-      <button class="btn-book ${isReturnStep ? 'btn-book-return' : ''}"
-        onclick="${isReturnStep
-          ? `bookFlight('${f.id}', ${passengers})`
-          : (isReturn ? `advanceToReturn(${fData})` : `bookFlight('${f.id}', ${passengers})`)
-        }">
-        ${btnLabel}
-      </button>
+      <button class="btn-book ${isReturnStep ? 'btn-book-return' : ''}">${btnLabel}</button>
     </div>
   `;
+
+  // Attach click handler directly — avoids JSON/quote escaping issues in onclick=""
+  const btn = card.querySelector('.btn-book');
+  if (isReturnStep) {
+    btn.addEventListener('click', () => bookFlight(f.id, passengers));
+  } else if (isReturn) {
+    btn.addEventListener('click', () => advanceToReturn(f));
+  } else {
+    btn.addEventListener('click', () => bookFlight(f.id, passengers));
+  }
+
   return card;
 }
 
