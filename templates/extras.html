@@ -64,7 +64,7 @@
       </div>
     </div>
 
-    <button class="ex-cta" onclick="continueToPassengers('{{ flight.id }}', {{ passengers }})">
+    <button class="ex-cta" onclick="continueToPassengers('{{ flight.id }}', {{ passengers }}, '{{ return_flight_id }}')">
       Continue to passenger details
     </button>
   </aside>
@@ -202,7 +202,7 @@
     </div>
 
     <!-- Mobile CTA -->
-    <button class="ex-cta ex-cta-mobile" onclick="continueToPassengers('{{ flight.id }}', {{ passengers }})">
+    <button class="ex-cta ex-cta-mobile" onclick="continueToPassengers('{{ flight.id }}', {{ passengers }}, '{{ return_flight_id }}')">
       Continue to passenger details
     </button>
 
@@ -537,10 +537,12 @@ function updateTotal() {
   }
 }
 
-function continueToPassengers(flightId, passengers) {
+function continueToPassengers(flightId, passengers, returnFlightId = '') {
   const extrasPerPax = Object.values(extraSelections).reduce((a, b) => a + b, 0);
   const extrasCost   = (extrasPerPax * passengers).toFixed(2);
-  window.location.href = `/passengers/${flightId}?passengers=${passengers}&extras_cost=${extrasCost}`;
+  let url = `/passengers/${flightId}?passengers=${passengers}&extras_cost=${extrasCost}`;
+  if (returnFlightId) url += `&return_flight_id=${returnFlightId}`;
+  window.location.href = url;
 }
 </script>
 
