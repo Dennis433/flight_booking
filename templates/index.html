@@ -19,6 +19,12 @@
 
     {% if session.get('user_id') %}
     <div class="search-box">
+      <!-- Trip type toggle -->
+      <div class="trip-toggle">
+        <button class="trip-btn active" id="btn-oneway" onclick="setTripType('oneway')">One way</button>
+        <button class="trip-btn" id="btn-return" onclick="setTripType('return')">Return</button>
+      </div>
+
       <div class="search-row">
         <div class="input-group" style="position:relative">
           <label for="origin">From</label>
@@ -31,8 +37,12 @@
           <div class="ac-dropdown" id="destination-dropdown"></div>
         </div>
         <div class="input-group">
-          <label for="date">Date</label>
+          <label for="date">Depart</label>
           <input type="date" id="date" />
+        </div>
+        <div class="input-group" id="return-date-group" style="display:none">
+          <label for="return-date">Return</label>
+          <input type="date" id="return-date" />
         </div>
         <div class="input-group">
           <label for="passengers">Passengers</label>
@@ -450,6 +460,30 @@ switchTab('popular');
 
 
 <style>
+/* ── Trip type toggle ───────────────────────────────── */
+.trip-toggle {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1.1rem;
+}
+.trip-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  border-radius: 20px;
+  padding: 0.3rem 1rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.trip-btn:hover { border-color: var(--border-h); color: var(--text); }
+.trip-btn.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+  font-weight: 600;
+}
+
 /* ── Hero additions ─────────────────────────────────── */
 .hero-eyebrow {
   display: inline-flex;
@@ -818,6 +852,63 @@ switchTab('popular');
   color: var(--text-3);
 }
 
+/* ── Return flight cards ────────────────────────────── */
+.flight-card-return {
+  border-left: 3px solid rgba(99,102,241,0.5);
+}
+.flight-card-return.selected-return {
+  border-color: var(--blue-l);
+  background: rgba(37,99,235,0.07);
+}
+.btn-book-return {
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.4);
+  color: #a5b4fc;
+}
+.btn-book-return:hover {
+  background: rgba(99,102,241,0.3);
+  color: #fff;
+}
+.price-note {
+  font-size: 0.65rem;
+  color: var(--text-3);
+  margin-top: -0.1rem;
+  margin-bottom: 0.2rem;
+}
+.results-header-return {
+  color: #a5b4fc;
+  border-top: 1px dashed rgba(99,102,241,0.3);
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+}
+.return-banner {
+  background: rgba(37,99,235,0.1);
+  border: 1px solid rgba(37,99,235,0.3);
+  border-radius: 8px;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.82rem;
+  color: var(--blue-l);
+  margin-bottom: 1rem;
+  text-align: center;
+}
+.trip-type-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--blue-l);
+  background: rgba(37,99,235,0.1);
+  border: 1px solid rgba(37,99,235,0.25);
+  border-radius: 100px;
+  padding: 0.2rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.trip-type-oneway {
+  color: var(--text-3);
+  background: rgba(255,255,255,0.04);
+  border-color: var(--border);
+}
+
 /* ── Responsive ─────────────────────────────────────── */
 @media (max-width: 768px) {
   .how-steps { flex-direction: column; align-items: stretch; }
@@ -835,6 +926,41 @@ switchTab('popular');
 </style>
 
 <script>
+// ── Trip type ─────────────────────────────────────────
+let tripType = 'oneway';
+
+function setTripType(type) {
+  tripType = type;
+  document.getElementById('btn-oneway').classList.toggle('active', type === 'oneway');
+  document.getElementById('btn-return').classList.toggle('active', type === 'return');
+  const returnGroup = document.getElementById('return-date-group');
+  returnGroup.style.display = type === 'return' ? '' : 'none';
+  if (type === 'return') {
+    // Default return date to 7 days after depart date
+    const depart = document.getElementById('date').value;
+    if (depart && !document.getElementById('return-date').value) {
+      const d = new Date(depart);
+      d.setDate(d.getDate() + 7);
+      document.getElementById('return-date').value = d.toISOString().split('T')[0];
+    }
+  }
+}
+
+// Keep return date always after depart date
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('date')?.addEventListener('change', () => {
+    if (tripType === 'return') {
+      const depart = document.getElementById('date').value;
+      const ret    = document.getElementById('return-date').value;
+      if (depart && (!ret || ret <= depart)) {
+        const d = new Date(depart);
+        d.setDate(d.getDate() + 7);
+        document.getElementById('return-date').value = d.toISOString().split('T')[0];
+      }
+    }
+  });
+});
+
 function prefillSearch(origin, dest) {
   {% if session.get('user_id') %}
   const originEl = document.getElementById('origin');
