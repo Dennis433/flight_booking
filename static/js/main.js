@@ -149,10 +149,15 @@ let allFlights    = [];
 let paxCount      = 1;
 let lastSearchKey = '';
 
+let returnFlights    = [];
+let selectedReturnId = null;
+
 async function searchFlights() {
   const originInput = document.getElementById('origin');
   const destInput   = document.getElementById('destination');
   const date        = document.getElementById('date').value;
+  const returnDate  = document.getElementById('return-date')?.value || '';
+  const isReturn    = (typeof tripType !== 'undefined' && tripType === 'return') && returnDate;
   paxCount          = Math.max(1, parseInt(document.getElementById('passengers').value) || 1);
   const resultsEl   = document.getElementById('results');
 
@@ -178,10 +183,15 @@ async function searchFlights() {
     showError(resultsEl, msg);
     destInput?.focus(); return;
   }
+  if (isReturn && !returnDate) {
+    showError(resultsEl, 'Please select a return date.'); return;
+  }
 
-  const searchKey = `${origin}|${destination}|${date}|${paxCount}`;
+  const searchKey = `${origin}|${destination}|${date}|${paxCount}|${returnDate}`;
   if (searchKey === lastSearchKey) return;
-  lastSearchKey = searchKey;
+  lastSearchKey    = searchKey;
+  selectedReturnId = null;
+  returnFlights    = [];
 
   resultsEl.innerHTML = `<div class="state-empty">
     <div class="loading-dots"><span></span><span></span><span></span></div>
@@ -196,6 +206,16 @@ async function searchFlights() {
     if (!data.length) { showError(resultsEl, 'No flights found for that route.'); return; }
 
     allFlights = data;
+
+    // Also fetch return flights if round-trip selected
+    if (isReturn) {
+      try {
+        const rRes  = await fetch(`/search/return?origin=${origin}&destination=${destination}&date=${returnDate}`);
+        const rData = await rRes.json();
+        returnFlights = rRes.ok ? rData : [];
+      } catch { returnFlights = []; }
+    }
+
     renderFiltersAndResults();
     document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -335,18 +355,35 @@ function applyFilters() {
     return;
   }
 
-  list.innerHTML = `<p class="results-header">${filtered.length} of ${allFlights.length} flight${allFlights.length > 1 ? 's' : ''}</p>`;
-  filtered.forEach(f => list.appendChild(flightCard(f, paxCount)));
+  list.innerHTML = `<p class="results-header">${filtered.length} of ${allFlights.length} flight${allFlights.length > 1 ? 's' : ''} — Outbound</p>`;
+  filtered.forEach(f => list.appendChild(flightCard(f, paxCount, false)));
+
+  // If return search, append return flight section
+  if (returnFlights.length > 0) {
+    const returnHeader = document.createElement('p');
+    returnHeader.className = 'results-header results-header-return';
+    returnHeader.textContent = `${returnFlights.length} flight${returnFlights.length > 1 ? 's' : ''} — Return`;
+    list.appendChild(returnHeader);
+    returnFlights.forEach(f => list.appendChild(flightCard(f, paxCount, true)));
+  }
 }
 
-function flightCard(f, passengers) {
+function flightCard(f, passengers, isReturnLeg = false) {
   const dep      = new Date(f.departure + (f.departure.endsWith('Z') ? '' : 'Z'));
   const arr      = new Date(f.arrival   + (f.arrival.endsWith('Z')   ? '' : 'Z'));
   const dur      = duration(dep, arr);
-  const total    = (f.price_usd * passengers).toLocaleString();
+  const isReturn = (typeof tripType !== 'undefined' && tripType === 'return');
+  // Show per-direction price; total (×2) shown at booking step
+  const perLeg   = (f.price_usd * passengers).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
   const seatsLow = f.seats > 0 && f.seats <= 5;
   const card     = document.createElement('div');
-  card.className = 'flight-card';
+  card.className = 'flight-card' + (isReturnLeg ? ' flight-card-return' : '');
+  card.dataset.flightId = f.id;
+  if (isReturnLeg) card.dataset.returnLeg = '1';
+
+  const btnLabel   = isReturnLeg ? 'Select return' : (isReturn ? 'Select outbound' : 'Select');
+  const priceLabel = isReturn ? (isReturnLeg ? 'Return leg' : 'Outbound leg') : 'from';
+
   card.innerHTML = `
     <div>
       <div class="flight-code">${f.origin}</div>
@@ -363,19 +400,57 @@ function flightCard(f, passengers) {
       <div class="flight-city">${f.dest_city}</div>
     </div>
     <div class="flight-price">
-      <div class="price-label">from</div>
-      <div class="price-usd">$${total}</div>
+      <div class="price-label">${priceLabel}</div>
+      <div class="price-usd">$${perLeg}</div>
+      ${isReturn ? `<div class="price-note">×2 for round trip</div>` : ''}
       <div class="flight-meta">
         <span class="cabin-badge">${f.cabin}</span>
         ${seatsLow ? `<span class="seats-warn">${f.seats} left</span>` : ''}
       </div>
-      <button class="btn-book" onclick="bookFlight('${f.id}', ${passengers})">Select</button>
+      <button class="btn-book ${isReturnLeg ? 'btn-book-return' : ''}"
+        onclick="${isReturnLeg ? `selectReturn('${f.id}', this)` : `bookFlight('${f.id}', ${passengers})`}">
+        ${btnLabel}
+      </button>
     </div>
   `;
   return card;
 }
 
+function selectReturn(returnFlightId, btn) {
+  // Highlight selected return card
+  document.querySelectorAll('.flight-card-return').forEach(c => c.classList.remove('selected-return'));
+  btn.closest('.flight-card-return').classList.add('selected-return');
+  selectedReturnId = returnFlightId;
+
+  // Update all outbound Select buttons to proceed with this return
+  document.querySelectorAll('.btn-book:not(.btn-book-return)').forEach(b => {
+    const card = b.closest('.flight-card');
+    if (card) {
+      const fid = card.dataset.flightId;
+      b.onclick = () => bookFlight(fid, paxCount);
+    }
+  });
+
+  // Show a "continue" banner if not already there
+  let banner = document.getElementById('return-selected-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'return-selected-banner';
+    banner.className = 'return-banner';
+    banner.innerHTML = `<span>✓ Return flight selected — now pick your outbound flight above</span>`;
+    document.getElementById('results').prepend(banner);
+  }
+}
+
 async function bookFlight(flightId, passengers) {
+  const isReturn = (typeof tripType !== 'undefined' && tripType === 'return');
+
+  // If return trip but no return flight selected yet, warn
+  if (isReturn && !selectedReturnId) {
+    alert('Please select a return flight first (scroll down to the Return section).');
+    return;
+  }
+
   const res  = await fetch(`/book/${flightId}`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -384,7 +459,10 @@ async function bookFlight(flightId, passengers) {
   const data = await res.json();
   if (res.status === 401) { window.location.href = '/login'; return; }
   if (!res.ok) { alert(data.error); return; }
-  window.location.href = `/extras/${flightId}?passengers=${passengers}`;
+
+  let url = `/extras/${flightId}?passengers=${passengers}`;
+  if (isReturn && selectedReturnId) url += `&return_flight_id=${selectedReturnId}`;
+  window.location.href = url;
 }
 
 function fmt(d) {
@@ -596,7 +674,7 @@ async function cancelBooking(bookingId) {
 }
 
 // ── Passenger details ─────────────────────────────────
-async function submitPassengers(flightId, passengers) {
+async function submitPassengers(flightId, passengers, returnFlightId = '') {
   const err = document.getElementById('pax-error');
 
   const firstNames = [...document.querySelectorAll('.pax-first')].map(el => el.value.trim());
@@ -618,14 +696,17 @@ async function submitPassengers(flightId, passengers) {
 
   const extrasParam = new URLSearchParams(window.location.search).get('extras_cost') || '0';
 
-  // ── KEY FIX: pass passengers count in the query string so app.py reads it correctly ──
-  const res = await fetch(`/passengers/${flightId}?passengers=${passengers}&extras_cost=${extrasParam}`, {
+  let url = `/passengers/${flightId}?passengers=${passengers}&extras_cost=${extrasParam}`;
+  if (returnFlightId) url += `&return_flight_id=${returnFlightId}`;
+
+  const res = await fetch(url, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({
-      contact_email:   email,
-      contact_phone:   phone,
-      passenger_names: firstNames.map((fn, i) => `${fn} ${lastNames[i]}`)
+      contact_email:    email,
+      contact_phone:    phone,
+      passenger_names:  firstNames.map((fn, i) => `${fn} ${lastNames[i]}`),
+      return_flight_id: returnFlightId || null,
     })
   });
 
