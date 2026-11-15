@@ -54,7 +54,18 @@ def send_receipt(booking):
         print(f'[mail] Skipping email — MAIL_USERNAME not configured. Notification sent in-app.')
         return
 
-    flight = booking.flight
+    flight        = booking.flight
+    return_section = ''
+    if booking.is_return and booking.return_flight:
+        rf = booking.return_flight
+        return_section = f"""
+── RETURN FLIGHT ──────────────────────
+Flight:      {rf.flight_number}
+Route:       {rf.origin.iata_code} → {rf.destination.iata_code}
+Departure:   {rf.departure_time.strftime('%d %b %Y %H:%M')} UTC
+Arrival:     {rf.arrival_time.strftime('%d %b %Y %H:%M')} UTC
+─────────────────────────────"""
+
     body   = f"""
 Hello {booking.user.full_name},
 
@@ -63,10 +74,15 @@ Your SkyChain booking is confirmed!
 ─────────────────────────────
 BOOKING REFERENCE: {booking.id[:8].upper()}
 ─────────────────────────────
+{'ROUND TRIP' if booking.is_return else 'ONE WAY'}
+
+── OUTBOUND FLIGHT ────────────────────
 Flight:      {flight.flight_number}
 Route:       {flight.origin.iata_code} → {flight.destination.iata_code}
 Departure:   {flight.departure_time.strftime('%d %b %Y %H:%M')} UTC
 Arrival:     {flight.arrival_time.strftime('%d %b %Y %H:%M')} UTC
+─────────────────────────────{return_section}
+
 Passengers:  {booking.passengers}
 Total paid:  ${booking.total_usd:.2f}
 ─────────────────────────────
@@ -432,15 +448,67 @@ def search():
     return jsonify(results)
 
 
+# ─── Return Flight Search ──────────────────────────────────────────────────
+
+@app.route('/search/return')
+def search_return():
+    """Search return flights (destination → origin) for a given return date."""
+    from datetime import datetime, timedelta
+
+    origin      = request.args.get('origin', '').upper()
+    destination = request.args.get('destination', '').upper()
+    date        = request.args.get('date', '')
+
+    # For return leg: origin and destination are swapped
+    origin_airport      = Airport.query.filter_by(iata_code=destination).first()
+    destination_airport = Airport.query.filter_by(iata_code=origin).first()
+
+    if not origin_airport or not destination_airport:
+        return jsonify({'error': 'Invalid airport codes'}), 400
+
+    if date:
+        try:
+            search_date = datetime.strptime(date, '%Y-%m-%d')
+        except ValueError:
+            search_date = datetime.utcnow() + timedelta(days=7)
+    else:
+        search_date = datetime.utcnow() + timedelta(days=7)
+        date = search_date.strftime('%Y-%m-%d')
+
+    day_start = search_date.replace(hour=0,  minute=0,  second=0,  microsecond=0)
+    day_end   = search_date.replace(hour=23, minute=59, second=59, microsecond=0)
+
+    flights = Flight.query.filter(
+        Flight.origin_id      == origin_airport.id,
+        Flight.destination_id == destination_airport.id,
+        Flight.departure_time >= day_start,
+        Flight.departure_time <= day_end,
+    ).order_by(Flight.departure_time).all()
+
+    if not flights:
+        flights = _generate_flights_for_route(origin_airport, destination_airport, date)
+
+    results = [{'id': f.id, 'flight_number': f.flight_number,
+                'origin': f.origin.iata_code, 'origin_city': f.origin.city,
+                'destination': f.destination.iata_code, 'dest_city': f.destination.city,
+                'departure': f.departure_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'arrival':   f.arrival_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'price_usd': f.price_usd, 'seats': f.seats_available, 'cabin': f.cabin_class
+               } for f in flights]
+
+    return jsonify(results)
+
+
 # ─── Extras ────────────────────────────────────────────────
 
 @app.route('/extras/<flight_id>')
 def extras(flight_id):
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    flight     = Flight.query.get_or_404(flight_id)
-    passengers = request.args.get('passengers', 1)
-    return render_template('extras.html', flight=flight, passengers=passengers)
+    flight           = Flight.query.get_or_404(flight_id)
+    passengers       = request.args.get('passengers', 1)
+    return_flight_id = request.args.get('return_flight_id', '')
+    return render_template('extras.html', flight=flight, passengers=passengers, return_flight_id=return_flight_id)
 
 
 # ─── Passenger Details ─────────────────────────────────────
@@ -450,13 +518,24 @@ def passenger_details(flight_id):
     if 'user_id' not in session:
         return redirect(url_for('login'))
 
-    flight     = Flight.query.get_or_404(flight_id)
-    passengers = int(request.args.get('passengers', 1))
+    flight           = Flight.query.get_or_404(flight_id)
+    passengers       = int(request.args.get('passengers', 1))
+    return_flight_id = request.args.get('return_flight_id')
+    return_flight    = Flight.query.get(return_flight_id) if return_flight_id else None
 
     if request.method == 'POST':
-        data        = request.get_json()
-        extras_cost = float(request.args.get('extras_cost', 0))
-        total       = (flight.price_usd * passengers) + extras_cost
+        data             = request.get_json()
+        extras_cost      = float(request.args.get('extras_cost', 0))
+        return_flight_id = data.get('return_flight_id') or request.args.get('return_flight_id')
+        is_return        = bool(return_flight_id)
+
+        base_price = flight.price_usd * passengers
+        # Double the base fare for return tickets (outbound + return)
+        total      = (base_price * 2 if is_return else base_price) + extras_cost
+
+        return_flight = None
+        if is_return and return_flight_id:
+            return_flight = Flight.query.get(return_flight_id)
 
         booking = Booking(
             user_id          = session['user_id'],
@@ -465,17 +544,23 @@ def passenger_details(flight_id):
             total_usd        = total,
             checkin_opens_at = flight.departure_time - timedelta(hours=48),
             contact_email    = data.get('contact_email', ''),
-            contact_phone    = data.get('contact_phone', '')
+            contact_phone    = data.get('contact_phone', ''),
+            is_return        = is_return,
+            return_flight_id = return_flight_id if is_return else None,
         )
         db.session.add(booking)
 
         if flight.seats_available >= passengers:
             flight.seats_available -= passengers
 
+        # Also deduct seats from return flight
+        if return_flight and return_flight.seats_available >= passengers:
+            return_flight.seats_available -= passengers
+
         db.session.commit()
         return jsonify({'booking_id': booking.id}), 201
 
-    return render_template('passenger_details.html', flight=flight, passengers=passengers)
+    return render_template('passenger_details.html', flight=flight, passengers=passengers, return_flight=return_flight)
 
 
 # ─── Booking Routes ────────────────────────────────────────
@@ -826,6 +911,8 @@ def run_migrations():
             _add_column_if_missing(conn, 'payments',     'chain',            'VARCHAR(10)')
             _add_column_if_missing(conn, 'payments',     'confirmed_at',     'TIMESTAMP WITH TIME ZONE')
             _add_column_if_missing(conn, 'notifications','booking_id',       'VARCHAR(36)')
+            _add_column_if_missing(conn, 'bookings',     'is_return',        'BOOLEAN DEFAULT false')
+            _add_column_if_missing(conn, 'bookings',     'return_flight_id', 'VARCHAR(36)')
     except Exception as e:
         print(f'[migrate] migration error (non-fatal): {e}')
 
