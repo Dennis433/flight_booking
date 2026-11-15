@@ -97,6 +97,10 @@
         <span class="amount-value" id="wallet-amount"></span>
       </div>
 
+      <div class="btc-qr-wrap" id="btc-qr-wrap" style="display:none">
+        <img src="{{ url_for('static', filename='img/btc-qr.png') }}" alt="Bitcoin QR code" class="btc-qr-img" />
+      </div>
+
       <div class="wallet-addr-box">
         <span class="wallet-addr-text" id="wallet-addr-text"></span>
         <button class="copy-btn" id="copy-btn" onclick="copyActiveAddress(this)">
@@ -313,6 +317,20 @@
   color: #4ade80;
 }
 
+.btc-qr-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+.btc-qr-img {
+  width: 180px;
+  height: 180px;
+  max-width: 100%;
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px;
+}
+
 .wallet-chain-badge {
   display: inline-block;
   margin-top: 0.5rem;
@@ -412,6 +430,10 @@ function showWallet(crypto, chain) {
   const amount   = (totalUsd * RATES[crypto]).toFixed(crypto === 'USDT' || crypto === 'USDC' ? 2 : 6);
 
   document.getElementById('wallet-addr-text').textContent  = addr;
+
+  // Show the Bitcoin QR code only for BTC
+  const qrWrap = document.getElementById('btc-qr-wrap');
+  if (qrWrap) qrWrap.style.display = (crypto === 'BTC') ? 'flex' : 'none';
   document.getElementById('wallet-amount').textContent     = `${amount} ${crypto}`;
   document.getElementById('wallet-chain-badge').textContent = badgeText;
 
