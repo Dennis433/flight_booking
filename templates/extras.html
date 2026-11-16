@@ -50,18 +50,27 @@
 
     <div class="ex-price-block">
       <div class="ex-price-line">
-        <span class="ex-price-desc">Base fare × {{ passengers }}</span>
-        <span class="ex-price-amt">${{ "%.2f"|format(flight.price_usd * passengers|int) }}</span>
+        <span class="ex-price-desc">Outbound {{ flight.origin.iata_code }} → {{ flight.destination.iata_code }} · {{ passengers }} pax</span>
+        <span class="ex-price-amt">${{ "%.2f"|format(flight.price_usd * passengers) }}</span>
       </div>
+      {% if return_flight %}
+      <div class="ex-price-line">
+        <span class="ex-price-desc">Return {{ return_flight.origin.iata_code }} → {{ return_flight.destination.iata_code }} · {{ passengers }} pax</span>
+        <span class="ex-price-amt">${{ "%.2f"|format(return_flight.price_usd * passengers) }}</span>
+      </div>
+      {% endif %}
       <div class="ex-price-line ex-extras-line" id="extras-line" style="display:none">
-        <span class="ex-price-desc">Extras</span>
+        <span class="ex-price-desc">Extras (× {{ passengers }} passengers)</span>
         <span class="ex-price-amt" id="extras-amount">$0.00</span>
       </div>
       <div class="ex-price-divider"></div>
       <div class="ex-price-total-row">
         <span>Total</span>
-        <span class="ex-total" id="extras-total">${{ "%.2f"|format(flight.price_usd * passengers|int) }}</span>
+        <span class="ex-total" id="extras-total">${{ "%.2f"|format(base_total) }}</span>
       </div>
+      <p class="ex-price-note" style="font-size:0.72rem;color:var(--text-3);margin:0.6rem 0 0">
+        Each fare is charged per passenger. Extras you choose are multiplied by the number of passengers.
+      </p>
     </div>
 
     <button class="ex-cta" onclick="continueToPassengers('{{ flight.id }}', {{ passengers }}, '{{ return_flight_id }}')">
@@ -506,7 +515,7 @@
 
 <script>
 const extraSelections = { seat: 0, baggage: 0, meal: 0, insurance: 0 };
-const baseFare        = {{ flight.price_usd * passengers|int }};
+const baseFare        = {{ "%.2f"|format(base_total) }};
 const pax             = {{ passengers }};
 
 function selectExtra(input, key, price) {
