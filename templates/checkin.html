@@ -1,6 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Web Check-in — SkyChain{% endblock %}
+{% block title %}Web Check-in — SkyChain<style>
+/* Round-trip ticket legs */
+.eticket-trip-badge {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.72rem; font-weight: 600; color: var(--blue-l);
+  background: rgba(37,99,235,0.1); border: 1px solid rgba(37,99,235,0.25);
+  border-radius: 100px; padding: 0.2rem 0.75rem; margin-bottom: 1rem;
+}
+.eticket-leg-label {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-3); margin-bottom: 0.5rem; font-weight: 600;
+}
+.eticket-leg-divider {
+  height: 1px; background: var(--border); margin: 1rem 0; border-style: dashed;
+}
+</style>
+{% endblock %}
 {% block content %}
+{% from "_ticket_legs.html" import ticket_leg %}
 
 <svg class="stars" xmlns="http://www.w3.org/2000/svg" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></svg>
 
@@ -12,36 +29,27 @@
     <h2>Web check-in</h2>
     <p class="confirm-sub">{{ booking.flight.origin.city }} → {{ booking.flight.destination.city }} · {{ booking.flight.departure_time.strftime('%d %b %Y, %H:%M') }}</p>
 
-    <!-- Flight strip (same eticket chrome as confirmation.html) -->
+    <!-- Flight strip: outbound, plus return leg for round trips -->
     <div class="eticket" style="margin-bottom:1.75rem">
       <div class="eticket-header">
         <div class="eticket-brand">SKYCHAIN</div>
         <div class="eticket-ref">{{ booking.id[:8].upper() }}</div>
       </div>
 
-      <div class="eticket-route">
-        <div class="eticket-port">
-          <div class="eticket-iata">{{ booking.flight.origin.iata_code }}</div>
-          <div class="eticket-city">{{ booking.flight.origin.city }}</div>
-          <div class="eticket-time">{{ booking.flight.departure_time.strftime('%H:%M') }}</div>
-        </div>
-        <div class="eticket-mid">
-          <div class="eticket-line">
-            <div class="eticket-plane">✈</div>
-          </div>
-          <div class="eticket-flight-num">{{ booking.flight.flight_number }}</div>
-        </div>
-        <div class="eticket-port eticket-port-right">
-          <div class="eticket-iata">{{ booking.flight.destination.iata_code }}</div>
-          <div class="eticket-city">{{ booking.flight.destination.city }}</div>
-          <div class="eticket-time">{{ booking.flight.arrival_time.strftime('%H:%M') }}</div>
-        </div>
-      </div>
+      {% if booking.is_return %}
+      <div class="eticket-trip-badge">↔ Round Trip · Outbound and return</div>
+      {% endif %}
+
+      {{ ticket_leg(booking.flight, 'Outbound' if booking.is_return else 'Flight') }}
+      {% if booking.is_return and booking.return_flight %}
+      <div class="eticket-leg-divider"></div>
+      {{ ticket_leg(booking.return_flight, 'Return') }}
+      {% endif %}
     </div>
 
     <!-- Seat selector -->
     <div class="checkin-section">
-      <div class="checkin-section-label">Select your seat</div>
+      <div class="checkin-section-label">Select your seat{% if booking.is_return %} · Outbound flight{% endif %}</div>
       <p class="checkin-hint">Choose one seat per passenger. Selected seats are highlighted in blue.</p>
 
       <div class="seatmap-wrap">
@@ -179,4 +187,20 @@ async function submitCheckin() {
   }
 }
 </script>
+<style>
+/* Round-trip ticket legs */
+.eticket-trip-badge {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.72rem; font-weight: 600; color: var(--blue-l);
+  background: rgba(37,99,235,0.1); border: 1px solid rgba(37,99,235,0.25);
+  border-radius: 100px; padding: 0.2rem 0.75rem; margin-bottom: 1rem;
+}
+.eticket-leg-label {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-3); margin-bottom: 0.5rem; font-weight: 600;
+}
+.eticket-leg-divider {
+  height: 1px; background: var(--border); margin: 1rem 0; border-style: dashed;
+}
+</style>
 {% endblock %}
