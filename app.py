@@ -514,7 +514,12 @@ def extras(flight_id):
     flight           = Flight.query.get_or_404(flight_id)
     passengers       = request.args.get('passengers', 1)
     return_flight_id = request.args.get('return_flight_id', '')
-    return render_template('extras.html', flight=flight, passengers=passengers, return_flight_id=return_flight_id)
+    passengers       = int(passengers)
+    return_flight    = Flight.query.get(return_flight_id) if return_flight_id else None
+    base_total       = flight.price_usd * passengers + (return_flight.price_usd * passengers if return_flight else 0)
+    return render_template('extras.html', flight=flight, passengers=passengers,
+                           return_flight_id=return_flight_id, return_flight=return_flight,
+                           base_total=base_total)
 
 
 # ─── Passenger Details ─────────────────────────────────────
@@ -528,6 +533,7 @@ def passenger_details(flight_id):
     passengers       = int(request.args.get('passengers', 1))
     return_flight_id = request.args.get('return_flight_id')
     return_flight    = Flight.query.get(return_flight_id) if return_flight_id else None
+    extras_cost      = float(request.args.get('extras_cost', 0))
 
     if request.method == 'POST':
         data             = request.get_json()
@@ -535,13 +541,11 @@ def passenger_details(flight_id):
         return_flight_id = data.get('return_flight_id') or request.args.get('return_flight_id')
         is_return        = bool(return_flight_id)
 
-        base_price = flight.price_usd * passengers
-        # Double the base fare for return tickets (outbound + return)
-        total      = (base_price * 2 if is_return else base_price) + extras_cost
-
-        return_flight = None
-        if is_return and return_flight_id:
-            return_flight = Flight.query.get(return_flight_id)
+        # Outbound fare + the ACTUAL return flight fare (each x passengers) + extras
+        return_flight = Flight.query.get(return_flight_id) if is_return else None
+        base_price    = flight.price_usd * passengers
+        return_fare   = return_flight.price_usd * passengers if return_flight else 0
+        total         = base_price + return_fare + extras_cost
 
         booking = Booking(
             user_id          = session['user_id'],
@@ -566,7 +570,11 @@ def passenger_details(flight_id):
         db.session.commit()
         return jsonify({'booking_id': booking.id}), 201
 
-    return render_template('passenger_details.html', flight=flight, passengers=passengers, return_flight=return_flight)
+    base_total  = flight.price_usd * passengers + (return_flight.price_usd * passengers if return_flight else 0)
+    grand_total = base_total + extras_cost
+    return render_template('passenger_details.html', flight=flight, passengers=passengers,
+                           return_flight=return_flight, extras_cost=extras_cost,
+                           base_total=base_total, grand_total=grand_total)
 
 
 # ─── Booking Routes ────────────────────────────────────────
