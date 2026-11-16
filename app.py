@@ -6,6 +6,7 @@ from flask_admin import AdminIndexView, expose
 from flask_mail import Mail, Message
 from markupsafe import Markup
 from config import Config
+from crypto_rates import get_usd_prices, RateUnavailable, crypto_amount
 from models import db, User, Airport, Flight, Booking, Payment, Notification
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import timedelta, datetime, timezone
@@ -615,7 +616,11 @@ def booking_status(booking_id):
 @app.route('/pay/<booking_id>', methods=['GET'])
 def payment_page(booking_id):
     booking = Booking.query.get_or_404(booking_id)
-    return render_template('payment.html', booking=booking)
+    try:
+        quote = get_usd_prices()
+    except RateUnavailable:
+        quote = None
+    return render_template('payment.html', booking=booking, quote=quote)
 
 
 @app.route('/pay/<booking_id>/submit', methods=['POST'])
@@ -629,12 +634,20 @@ def submit_payment(booking_id):
     if crypto not in ['BTC', 'ETH', 'SOL', 'USDT', 'USDC']:
         return jsonify({'error': 'Unsupported crypto'}), 400
 
+    # The amount is always calculated here from live prices.
+    # Any amount sent by the browser is ignored.
+    try:
+        quote = get_usd_prices()
+    except RateUnavailable:
+        return jsonify({'error': 'Live crypto prices are unavailable right now. Please try again in a minute.'}), 503
+    amount = crypto_amount(booking.total_usd, crypto, quote['prices'])
+
     raw_chain = data.get('chain') or ''
     payment = Payment(
         booking_id    = booking_id,
         crypto_type   = crypto,
         chain         = raw_chain.upper().strip() or None,
-        amount_crypto = data.get('amount_crypto'),
+        amount_crypto = amount,
         tx_hash       = tx_hash,
         status        = 'pending'
     )
@@ -648,6 +661,8 @@ def submit_payment(booking_id):
     return jsonify({
         'message':     'Payment submitted, awaiting confirmation',
         'payment_id':  payment.id,
+        'amount_crypto': amount,
+        'rate_as_of':  quote['as_of'],
         'pending_url': f'/booking/{booking_id}/pending'
     }), 201
 
