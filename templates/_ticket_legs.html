@@ -1,0 +1,21 @@
+{% macro ticket_leg(f, label) -%}
+<div class="eticket-leg-label">{{ label }}</div>
+<div class="eticket-route">
+  <div class="eticket-port">
+    <div class="eticket-iata">{{ f.origin.iata_code }}</div>
+    <div class="eticket-city">{{ f.origin.city }}</div>
+    <div class="eticket-time">{{ f.departure_time.strftime('%H:%M') }}</div>
+  </div>
+  <div class="eticket-mid">
+    <div class="eticket-line">
+      <div class="eticket-plane">✈</div>
+    </div>
+    <div class="eticket-flight-num">{{ f.flight_number }}</div>
+  </div>
+  <div class="eticket-port eticket-port-right">
+    <div class="eticket-iata">{{ f.destination.iata_code }}</div>
+    <div class="eticket-city">{{ f.destination.city }}</div>
+    <div class="eticket-time">{{ f.arrival_time.strftime('%H:%M') }}</div>
+  </div>
+</div>
+{%- endmacro %}
