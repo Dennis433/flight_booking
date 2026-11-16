@@ -85,17 +85,11 @@
           {{ passengers }} passenger{{ 's' if passengers > 1 }} · {{ flight.cabin_class|capitalize }}
           {% if return_flight %} · Round Trip{% endif %}
         </div>
-        {% if return_flight %}
         <div class="extras-total-label" style="font-size:0.72rem;color:var(--text-3)">
-          Outbound ${{ "%.2f"|format(flight.price_usd * passengers) }} + Return ${{ "%.2f"|format(return_flight.price_usd * passengers) }}
+          Outbound ${{ "%.2f"|format(flight.price_usd * passengers) }}{% if return_flight %} + Return ${{ "%.2f"|format(return_flight.price_usd * passengers) }}{% endif %} + Extras ${{ "%.2f"|format(extras_cost) }}
         </div>
-        {% endif %}
         <div class="extras-total-label">Total</div>
-        {% if return_flight %}
-        <div class="extras-total">${{ "%.2f"|format((flight.price_usd + return_flight.price_usd) * passengers) }}</div>
-        {% else %}
-        <div class="extras-total">${{ "%.2f"|format(flight.price_usd * passengers) }}</div>
-        {% endif %}
+        <div class="extras-total">${{ "%.2f"|format(grand_total) }}</div>
       </div>
       <button class="btn-continue" onclick="submitPassengers('{{ flight.id }}', {{ passengers }}, '{{ return_flight.id if return_flight else '' }}')">
         Continue to payment
