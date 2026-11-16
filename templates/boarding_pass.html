@@ -1,6 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Boarding Pass — SkyChain{% endblock %}
+{% block title %}Boarding Pass — SkyChain<style>
+/* Round-trip ticket legs */
+.eticket-trip-badge {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.72rem; font-weight: 600; color: var(--blue-l);
+  background: rgba(37,99,235,0.1); border: 1px solid rgba(37,99,235,0.25);
+  border-radius: 100px; padding: 0.2rem 0.75rem; margin-bottom: 1rem;
+}
+.eticket-leg-label {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-3); margin-bottom: 0.5rem; font-weight: 600;
+}
+.eticket-leg-divider {
+  height: 1px; background: var(--border); margin: 1rem 0; border-style: dashed;
+}
+</style>
+{% endblock %}
 {% block content %}
+{% from "_ticket_legs.html" import ticket_leg %}
 
 <svg class="stars" xmlns="http://www.w3.org/2000/svg" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></svg>
 
@@ -26,25 +43,16 @@
         <div class="eticket-ref">{{ booking.id[:8].upper() }}</div>
       </div>
 
-      <!-- Same route display as e-ticket -->
-      <div class="eticket-route">
-        <div class="eticket-port">
-          <div class="eticket-iata">{{ booking.flight.origin.iata_code }}</div>
-          <div class="eticket-city">{{ booking.flight.origin.city }}</div>
-          <div class="eticket-time">{{ booking.flight.departure_time.strftime('%H:%M') }}</div>
-        </div>
-        <div class="eticket-mid">
-          <div class="eticket-line">
-            <div class="eticket-plane">✈</div>
-          </div>
-          <div class="eticket-flight-num">{{ booking.flight.flight_number }}</div>
-        </div>
-        <div class="eticket-port eticket-port-right">
-          <div class="eticket-iata">{{ booking.flight.destination.iata_code }}</div>
-          <div class="eticket-city">{{ booking.flight.destination.city }}</div>
-          <div class="eticket-time">{{ booking.flight.arrival_time.strftime('%H:%M') }}</div>
-        </div>
-      </div>
+      {% if booking.is_return %}
+      <div class="eticket-trip-badge">↔ Round Trip · Outbound and return</div>
+      {% endif %}
+
+      <!-- Route display: outbound, plus return leg for round trips -->
+      {{ ticket_leg(booking.flight, 'Outbound' if booking.is_return else 'Flight') }}
+      {% if booking.is_return and booking.return_flight %}
+      <div class="eticket-leg-divider"></div>
+      {{ ticket_leg(booking.return_flight, 'Return') }}
+      {% endif %}
 
       <!-- Same tearline notch -->
       <div class="eticket-divider">
@@ -52,7 +60,7 @@
         <div class="eticket-notch eticket-notch-right"></div>
       </div>
 
-      <!-- Boarding pass lower half — gate / seat / boarding time -->
+      <!-- Boarding pass lower half — gate / seat / boarding time (outbound leg) -->
       <div class="bp-fields">
         <div class="bp-field bp-field-large">
           <div class="eticket-detail-label">Seat</div>
@@ -115,4 +123,20 @@
   wrap.innerHTML = html;
 })();
 </script>
+<style>
+/* Round-trip ticket legs */
+.eticket-trip-badge {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.72rem; font-weight: 600; color: var(--blue-l);
+  background: rgba(37,99,235,0.1); border: 1px solid rgba(37,99,235,0.25);
+  border-radius: 100px; padding: 0.2rem 0.75rem; margin-bottom: 1rem;
+}
+.eticket-leg-label {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-3); margin-bottom: 0.5rem; font-weight: 600;
+}
+.eticket-leg-divider {
+  height: 1px; background: var(--border); margin: 1rem 0; border-style: dashed;
+}
+</style>
 {% endblock %}
