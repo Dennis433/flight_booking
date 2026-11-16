@@ -25,6 +25,26 @@
         <span>Departure</span>
         <span>{{ booking.flight.departure_time.strftime('%d %b %Y, %H:%M') }}</span>
       </div>
+      {% set pax = booking.passengers %}
+      {% set out_fare = booking.flight.price_usd * pax %}
+      {% set ret_fare = (booking.return_flight.price_usd * pax) if booking.return_flight else 0 %}
+      {% set extras_amt = booking.total_usd - out_fare - ret_fare %}
+      <div class="summary-row">
+        <span>Outbound fare ({{ pax }} × ${{ "%.2f"|format(booking.flight.price_usd) }})</span>
+        <span>${{ "%.2f"|format(out_fare) }}</span>
+      </div>
+      {% if booking.return_flight %}
+      <div class="summary-row">
+        <span>Return fare ({{ pax }} × ${{ "%.2f"|format(booking.return_flight.price_usd) }})</span>
+        <span>${{ "%.2f"|format(ret_fare) }}</span>
+      </div>
+      {% endif %}
+      {% if extras_amt > 0.005 %}
+      <div class="summary-row">
+        <span>Extras</span>
+        <span>${{ "%.2f"|format(extras_amt) }}</span>
+      </div>
+      {% endif %}
       <div class="summary-row total">
         <span>Total</span>
         <span class="summary-val">${{ "%.2f"|format(booking.total_usd) }}</span>
@@ -96,6 +116,8 @@
         <span class="amount-label">Exact amount:</span>
         <span class="amount-value" id="wallet-amount"></span>
       </div>
+
+      <div class="wallet-calc" id="wallet-calc"></div>
 
       <div class="btc-qr-wrap" id="btc-qr-wrap" style="display:none">
         <img src="{{ url_for('static', filename='img/btc-qr.png') }}" alt="Bitcoin QR code" class="btc-qr-img" />
@@ -317,6 +339,12 @@
   color: #4ade80;
 }
 
+.wallet-calc {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  margin: -0.35rem 0 0.75rem;
+  line-height: 1.5;
+}
 .btc-qr-wrap {
   display: flex;
   justify-content: center;
@@ -435,6 +463,8 @@ function showWallet(crypto, chain) {
   const qrWrap = document.getElementById('btc-qr-wrap');
   if (qrWrap) qrWrap.style.display = (crypto === 'BTC') ? 'flex' : 'none';
   document.getElementById('wallet-amount').textContent     = `${amount} ${crypto}`;
+  document.getElementById('wallet-calc').textContent =
+    `Calculation: $${totalUsd.toFixed(2)} total × ${RATES[crypto]} ${crypto} per USD = ${amount} ${crypto}`;
   document.getElementById('wallet-chain-badge').textContent = badgeText;
 
   // Reset copy button
