@@ -389,7 +389,10 @@ function applyFilters() {
   const isReturnStep = stepperStep === 'return';
   const headerEl = document.createElement('p');
   headerEl.className = 'results-header' + (isReturnStep ? ' results-header-return' : '');
-  headerEl.textContent = `${filtered.length} of ${srcFlights.length} flight${srcFlights.length > 1 ? 's' : ''} — ${isReturnStep ? 'Return' : 'Outbound'}`;
+  const stepLabel = returnFlights.length
+    ? (isReturnStep ? 'Step 2 of 2 · Choose your return flight' : 'Step 1 of 2 · Choose your outbound flight')
+    : 'Choose your flight';
+  headerEl.textContent = `${filtered.length} of ${srcFlights.length} flight${srcFlights.length > 1 ? 's' : ''} — ${stepLabel}`;
   list.appendChild(headerEl);
 
   // If on return step, show the chosen outbound as a summary above the list
@@ -441,7 +444,9 @@ function flightCard(f, passengers, isReturnStep = false) {
   card.dataset.flightId = f.id;
 
   const btnLabel   = isReturnStep ? 'Select return' : (isReturn ? 'Select outbound' : 'Select');
-  const priceLabel = isReturn ? (isReturnStep ? 'Return leg' : 'Outbound leg') : 'from';
+  const priceLabel = isReturn
+    ? (isReturnStep ? `Return fare · ${passengers} pax` : `Outbound fare · ${passengers} pax`)
+    : 'from';
 
   card.innerHTML = `
     <div>
@@ -461,7 +466,7 @@ function flightCard(f, passengers, isReturnStep = false) {
     <div class="flight-price">
       <div class="price-label">${priceLabel}</div>
       <div class="price-usd">$${perLeg}</div>
-      ${isReturn ? `<div class="price-note">×2 for round trip</div>` : ''}
+      ${isReturn ? `<div class="price-note">${isReturnStep ? 'Added to your total' : 'Return fare is picked in step 2'}</div>` : ''}
       <div class="flight-meta">
         <span class="cabin-badge">${f.cabin}</span>
         ${seatsLow ? `<span class="seats-warn">${f.seats} left</span>` : ''}
