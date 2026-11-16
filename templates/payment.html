@@ -51,6 +51,12 @@
       </div>
     </div>
 
+    {% if not quote %}
+    <div class="auth-error show" style="display:block">
+      Live crypto prices are unavailable right now. Please try again in a minute.
+    </div>
+    {% endif %}
+
     <!-- ── Step 1: Choose currency ───────────────────────── -->
     <p class="pay-step-label">Select payment currency</p>
     <div class="crypto-options">
@@ -376,13 +382,14 @@
 <script>
 const WALLETS = JSON.parse(document.getElementById('wallet-data').textContent);
 
-const RATES = {
-  BTC:  0.000015,
-  ETH:  0.00035,
-  SOL:  0.065,
-  USDT: 1.0,
-  USDC: 1.0,
-};
+// Live prices come from the server (CoinGecko, cached). Nothing is hardcoded.
+const QUOTE      = {{ quote|tojson if quote else 'null' }};
+const PRICES     = QUOTE ? QUOTE.prices : {};          // USD per 1 unit of each coin
+const RATES      = {};                                 // coin units per 1 USD
+Object.keys(PRICES).forEach(k => { RATES[k] = 1 / PRICES[k]; });
+const QUOTE_TIME = QUOTE
+  ? new Date(QUOTE.as_of).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  : '';
 
 const ALL_CRYPTOS = ['btc','eth','sol','usdt','usdc'];
 var selectedCrypto = null;
@@ -441,6 +448,7 @@ function selectChain(chain) {
 
 // ── Show wallet address + amount ──────────────────────
 function showWallet(crypto, chain) {
+  if (!QUOTE) { document.getElementById('wallet-section').style.display = 'none'; return; }
   let addrKey, badgeText;
 
   if (crypto === 'BTC')  { addrKey = 'BTC';      badgeText = 'Bitcoin Network'; }
@@ -464,7 +472,7 @@ function showWallet(crypto, chain) {
   if (qrWrap) qrWrap.style.display = (crypto === 'BTC') ? 'flex' : 'none';
   document.getElementById('wallet-amount').textContent     = `${amount} ${crypto}`;
   document.getElementById('wallet-calc').textContent =
-    `Calculation: $${totalUsd.toFixed(2)} total × ${RATES[crypto]} ${crypto} per USD = ${amount} ${crypto}`;
+    `Calculation: $${totalUsd.toFixed(2)} ÷ $${PRICES[crypto].toLocaleString('en-US', { maximumFractionDigits: 2 })} per ${crypto} = ${amount} ${crypto}. Live price as of ${QUOTE_TIME} UTC${QUOTE.source === 'live' ? '' : ' (last known)'}.`;
   document.getElementById('wallet-chain-badge').textContent = badgeText;
 
   // Reset copy button
@@ -508,6 +516,7 @@ async function handleConfirmPayment() {
   errEl.style.display = 'none';
   errEl.classList.remove('show');
 
+  if (!QUOTE)           { showErr('Live prices are unavailable. Please try again in a minute.'); return; }
   if (!selectedCrypto) { showErr('Please select a payment currency.'); return; }
   if (!txHash)          { showErr('Please paste your transaction hash.'); return; }
 
@@ -520,7 +529,6 @@ async function handleConfirmPayment() {
   btn.disabled    = true;
   btn.textContent = 'Submitting…';
 
-  const RATES    = { BTC: 0.000015, ETH: 0.00035, SOL: 0.065, USDT: 1.0, USDC: 1.0 };
   const totalEl  = document.querySelector('.summary-row.total .summary-val');
   const totalUsd = totalEl ? parseFloat(totalEl.textContent.replace(/[^0-9.]/g, '')) : 0;
   const decimals = (selectedCrypto === 'USDT' || selectedCrypto === 'USDC') ? 2 : 6;
