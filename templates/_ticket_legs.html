@@ -18,4 +18,5 @@
     <div class="eticket-time">{{ f.arrival_time.strftime('%H:%M') }}</div>
   </div>
 </div>
+<div class="eticket-date">{{ f.departure_time.strftime('%a, %d %b %Y') }}</div>
 {%- endmacro %}
