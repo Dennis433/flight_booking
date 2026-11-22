@@ -13,7 +13,27 @@
     <nav class="navbar">
         <div class="nav-inner">
             <a href="/" class="logo">SKY<span>CHAIN</span></a>
-            <div class="nav-links">
+            <!-- ══ LANGUAGE SWITCHER (top bar, always visible) ══ -->
+        <div class="lang-switcher" id="langSwitcher">
+            <button class="lang-btn" id="langBtn" aria-label="Change language" aria-expanded="false">
+                <span class="lang-globe">🌐</span>
+                <span class="lang-current-label" id="langCurrentLabel">English</span>
+                <span class="lang-caret">▾</span>
+            </button>
+            <div class="lang-dropdown" id="langDropdown" role="listbox" aria-label="Select language">
+                <div class="lang-search-wrap">
+                    <input type="text" class="lang-search" id="langSearch" placeholder="Search language…" autocomplete="off" spellcheck="false">
+                </div>
+                <div class="lang-list" id="langList"></div>
+            </div>
+        </div>
+
+        <!-- Hamburger (mobile only) -->
+        <button class="nav-hamburger" id="navHamburger" aria-label="Toggle menu" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+
+        <div class="nav-links" id="navLinks">
                 {% if session.get('user_id') %}
                     <a href="/dashboard">My bookings</a>
 
@@ -44,23 +64,8 @@
                     <a href="/login">Login</a>
                     <a href="/register" class="btn-primary">Sign Up</a>
                 {% endif %}
-
-                <!-- ══ LANGUAGE SWITCHER ══ -->
-                <div class="lang-switcher" id="langSwitcher">
-                    <button class="lang-btn" id="langBtn" aria-label="Change language" aria-expanded="false">
-                        <span class="lang-globe">🌐</span>
-                        <span class="lang-current-label" id="langCurrentLabel">English</span>
-                        <span class="lang-caret">▾</span>
-                    </button>
-                    <div class="lang-dropdown" id="langDropdown" role="listbox" aria-label="Select language">
-                        <div class="lang-search-wrap">
-                            <input type="text" class="lang-search" id="langSearch" placeholder="Search language…" autocomplete="off" spellcheck="false">
-                        </div>
-                        <div class="lang-list" id="langList"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        </div><!-- /.nav-links -->
+        </div><!-- /.nav-inner -->
     </nav>
 
     <main>
@@ -860,6 +865,37 @@
     document.addEventListener("DOMContentLoaded", () => {
         autoDetectLanguage();
         injectGoogleTranslate();
+
+        // ── Hamburger ──
+        const hamburger = document.getElementById("navHamburger");
+        const navLinks  = document.getElementById("navLinks");
+        if (hamburger && navLinks) {
+            hamburger.addEventListener("click", () => {
+                const isOpen = navLinks.classList.toggle("open");
+                hamburger.classList.toggle("open", isOpen);
+                hamburger.setAttribute("aria-expanded", isOpen);
+                // close lang dropdown when opening nav
+                if (isOpen) closeLangDropdown();
+                document.body.style.overflow = isOpen ? "hidden" : "";
+            });
+            navLinks.querySelectorAll("a").forEach(a => {
+                a.addEventListener("click", () => {
+                    navLinks.classList.remove("open");
+                    hamburger.classList.remove("open");
+                    hamburger.setAttribute("aria-expanded", "false");
+                    document.body.style.overflow = "";
+                });
+            });
+            // close nav when lang dropdown opens
+            document.getElementById("langBtn").addEventListener("click", () => {
+                if (navLinks.classList.contains("open")) {
+                    navLinks.classList.remove("open");
+                    hamburger.classList.remove("open");
+                    hamburger.setAttribute("aria-expanded", "false");
+                    document.body.style.overflow = "";
+                }
+            }, true);
+        }
     });
     </script>
 
