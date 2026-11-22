@@ -44,6 +44,21 @@
                     <a href="/login">Login</a>
                     <a href="/register" class="btn-primary">Sign Up</a>
                 {% endif %}
+
+                <!-- ══ LANGUAGE SWITCHER ══ -->
+                <div class="lang-switcher" id="langSwitcher">
+                    <button class="lang-btn" id="langBtn" aria-label="Change language" aria-expanded="false">
+                        <span class="lang-globe">🌐</span>
+                        <span class="lang-current-label" id="langCurrentLabel">English</span>
+                        <span class="lang-caret">▾</span>
+                    </button>
+                    <div class="lang-dropdown" id="langDropdown" role="listbox" aria-label="Select language">
+                        <div class="lang-search-wrap">
+                            <input type="text" class="lang-search" id="langSearch" placeholder="Search language…" autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="lang-list" id="langList"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </nav>
@@ -57,9 +72,7 @@
     {% if session.get('user_id') %}
     <style>
     /* ── Notification bell & panel ──────────────────────── */
-    .notif-wrap {
-        position: relative;
-    }
+    .notif-wrap { position: relative; }
     .notif-bell {
         position: relative;
         background: none;
@@ -104,15 +117,8 @@
     }
     .notif-panel.open { display: block; }
 
-    /* On mobile: take full width with small side margins */
     @media (max-width: 480px) {
-        .notif-panel {
-            left: 8px;
-            right: 8px;
-            width: auto;
-            max-width: none;
-            top: 60px;
-        }
+        .notif-panel { left: 8px; right: 8px; width: auto; max-width: none; top: 60px; }
     }
 
     .notif-panel-header {
@@ -126,25 +132,13 @@
         color: var(--text);
     }
     .notif-mark-all {
-        background: none;
-        border: none;
-        font-size: 0.72rem;
-        color: var(--blue-l);
-        cursor: pointer;
-        padding: 0;
+        background: none; border: none; font-size: 0.72rem;
+        color: var(--blue-l); cursor: pointer; padding: 0;
     }
     .notif-mark-all:hover { text-decoration: underline; }
 
-    .notif-list {
-        max-height: 420px;
-        overflow-y: auto;
-    }
-    .notif-empty {
-        padding: 2.5rem 1.25rem;
-        text-align: center;
-        font-size: 0.82rem;
-        color: var(--text-3);
-    }
+    .notif-list { max-height: 420px; overflow-y: auto; }
+    .notif-empty { padding: 2.5rem 1.25rem; text-align: center; font-size: 0.82rem; color: var(--text-3); }
 
     .notif-item {
         padding: 1rem 1.25rem;
@@ -172,23 +166,9 @@
         gap: 0.5rem;
         margin-bottom: 0.35rem;
     }
-    .notif-item-title {
-        font-size: 0.82rem;
-        font-weight: 600;
-        color: var(--text);
-        line-height: 1.3;
-    }
-    .notif-item-time {
-        font-size: 0.68rem;
-        color: var(--text-3);
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-    .notif-item-body {
-        font-size: 0.78rem;
-        color: var(--text-2);
-        line-height: 1.5;
-    }
+    .notif-item-title { font-size: 0.82rem; font-weight: 600; color: var(--text); line-height: 1.3; }
+    .notif-item-time  { font-size: 0.68rem; color: var(--text-3); white-space: nowrap; flex-shrink: 0; }
+    .notif-item-body  { font-size: 0.78rem; color: var(--text-2); line-height: 1.5; }
 
     .notif-type-icon {
         display: inline-block;
@@ -196,8 +176,7 @@
         border-radius: 50%;
         margin-right: 0.35rem;
         vertical-align: middle;
-        position: relative;
-        top: -1px;
+        position: relative; top: -1px;
     }
     .notif-type-icon.pending   { background: #f59e0b; }
     .notif-type-icon.confirmed { background: #4ade80; }
@@ -223,7 +202,6 @@
         if (notifOpen) loadNotifications();
     }
 
-    // Close when clicking outside
     document.addEventListener('click', e => {
         if (notifOpen && !document.getElementById('notif-wrap').contains(e.target)) {
             notifOpen = false;
@@ -302,15 +280,12 @@
         } catch {}
     }
 
-    // ── Supabase Realtime — instant notification push ──────
     const SUPABASE_URL      = '{{ config.SUPABASE_URL }}';
     const SUPABASE_ANON_KEY = '{{ config.SUPABASE_ANON_KEY }}';
     const USER_ID           = '{{ session.get("user_id", "") }}';
 
     refreshBadge();
 
-    // Always poll every 15 s so the badge stays fresh regardless of
-    // whether Supabase Realtime / table replication is enabled.
     let _lastCount = 0;
     setInterval(async () => {
         try {
@@ -320,7 +295,6 @@
             if (data.count > 0) {
                 badge.textContent = data.count > 9 ? '9+' : data.count;
                 badge.style.display = 'flex';
-                // If count grew, show a toast for the newest notification
                 if (data.count > _lastCount) {
                     const nr = await fetch('/api/notifications');
                     const items = await nr.json();
@@ -334,10 +308,8 @@
         } catch {}
     }, 15000);
 
-    // Also wire up Supabase Realtime for instant push when replication IS enabled
     if (SUPABASE_URL && SUPABASE_ANON_KEY && USER_ID) {
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
         supabase
             .channel('notifications:' + USER_ID)
             .on('postgres_changes', {
@@ -393,7 +365,6 @@
          CUSTOMER SUPPORT WIDGET
     ══════════════════════════════════════════════ -->
 
-    <!-- FAB Button -->
     <button class="support-fab" id="support-fab" onclick="toggleSupport()" aria-label="Customer Support">
       <svg id="support-fab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -405,10 +376,7 @@
       <span class="support-fab-ping"></span>
     </button>
 
-    <!-- Chat Panel -->
     <div class="support-panel" id="support-panel" aria-hidden="true">
-
-      <!-- Header -->
       <div class="support-header">
         <div class="support-header-left">
           <div class="support-avatar">✈</div>
@@ -426,7 +394,6 @@
         </button>
       </div>
 
-      <!-- FAQ Quick Chips -->
       <div class="support-faq-chips" id="support-faq-chips">
         <div class="support-faq-label">Common questions — tap to ask</div>
         <div class="support-chips-row">
@@ -441,7 +408,6 @@
         </div>
       </div>
 
-      <!-- Messages -->
       <div class="support-messages" id="support-messages">
         <div class="support-msg support-msg-bot">
           <div class="support-bubble">
@@ -452,14 +418,12 @@
         </div>
       </div>
 
-      <!-- Typing indicator -->
       <div class="support-typing" id="support-typing" style="display:none">
         <div class="support-bubble support-typing-bubble">
           <span></span><span></span><span></span>
         </div>
       </div>
 
-      <!-- Input -->
       <div class="support-input-row">
         <input class="support-input" id="support-input" type="text"
           placeholder="Ask a question…" autocomplete="off"
@@ -471,208 +435,123 @@
           </svg>
         </button>
       </div>
-
-    </div><!-- /.support-panel -->
+    </div>
 
     <style>
-    /* ── FAB ─────────────────────────────────────────── */
     .support-fab {
-      position: fixed;
-      bottom: 1.75rem;
-      right: 1.75rem;
-      z-index: 500;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
+      position: fixed; bottom: 1.75rem; right: 1.75rem; z-index: 500;
+      display: flex; align-items: center; gap: 0.5rem;
       background: linear-gradient(135deg, #2563EB 0%, #7c3aed 100%);
-      color: #fff;
-      border: none;
-      border-radius: 50px;
+      color: #fff; border: none; border-radius: 50px;
       padding: 0.8rem 1.3rem 0.8rem 1rem;
       font-family: 'Space Grotesk', sans-serif;
-      font-size: 0.88rem;
-      font-weight: 600;
-      cursor: pointer;
+      font-size: 0.88rem; font-weight: 600; cursor: pointer;
       box-shadow: 0 4px 24px rgba(37,99,235,0.55), 0 0 0 0 rgba(37,99,235,0.35);
       animation: fab-pulse 2.8s ease-in-out infinite;
       transition: transform 0.2s, box-shadow 0.2s;
     }
-    .support-fab:hover {
-      transform: translateY(-3px) scale(1.04);
-      box-shadow: 0 10px 36px rgba(37,99,235,0.7);
-      animation: none;
-    }
+    .support-fab:hover { transform: translateY(-3px) scale(1.04); box-shadow: 0 10px 36px rgba(37,99,235,0.7); animation: none; }
     @keyframes fab-pulse {
       0%,100% { box-shadow: 0 4px 24px rgba(37,99,235,0.55), 0 0 0 0 rgba(37,99,235,0.35); }
       60%      { box-shadow: 0 4px 24px rgba(37,99,235,0.55), 0 0 0 14px rgba(37,99,235,0); }
     }
     .support-fab-label { letter-spacing: 0.01em; }
     .support-fab-ping {
-      position: absolute;
-      top: -5px; right: -5px;
-      width: 13px; height: 13px;
-      background: #4ade80;
-      border-radius: 50%;
-      border: 2px solid #080B14;
+      position: absolute; top: -5px; right: -5px;
+      width: 13px; height: 13px; background: #4ade80;
+      border-radius: 50%; border: 2px solid #080B14;
       animation: ping-blink 2s ease-in-out infinite;
     }
-    @keyframes ping-blink {
-      0%,100% { opacity: 1; transform: scale(1); }
-      50%      { opacity: 0.5; transform: scale(1.25); }
-    }
+    @keyframes ping-blink { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.25)} }
 
-    /* ── Panel ───────────────────────────────────────── */
     .support-panel {
-      position: fixed;
-      bottom: 5.5rem;
-      right: 1.75rem;
-      z-index: 499;
-      width: 380px;
-      max-width: calc(100vw - 2rem);
-      max-height: 590px;
-      background: var(--bg-2);
-      border: 1px solid var(--border-h);
-      border-radius: 18px;
-      box-shadow: 0 24px 80px rgba(0,0,0,0.65);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      transform: translateY(14px) scale(0.97);
-      opacity: 0;
-      pointer-events: none;
+      position: fixed; bottom: 5.5rem; right: 1.75rem; z-index: 499;
+      width: 380px; max-width: calc(100vw - 2rem); max-height: 590px;
+      background: var(--bg-2); border: 1px solid var(--border-h);
+      border-radius: 18px; box-shadow: 0 24px 80px rgba(0,0,0,0.65);
+      display: flex; flex-direction: column; overflow: hidden;
+      transform: translateY(14px) scale(0.97); opacity: 0; pointer-events: none;
       transition: opacity 0.22s ease, transform 0.22s ease;
     }
-    .support-panel.open {
-      transform: translateY(0) scale(1);
-      opacity: 1;
-      pointer-events: all;
-    }
+    .support-panel.open { transform: translateY(0) scale(1); opacity: 1; pointer-events: all; }
 
-    /* Header */
     .support-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      display: flex; align-items: center; justify-content: space-between;
       padding: 0.95rem 1.1rem 0.85rem;
       background: linear-gradient(135deg, rgba(37,99,235,0.18), rgba(124,58,237,0.12));
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
     }
     .support-header-left { display: flex; align-items: center; gap: 0.75rem; }
     .support-avatar {
       width: 38px; height: 38px;
       background: linear-gradient(135deg, #2563EB, #7c3aed);
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
       font-size: 1.05rem; flex-shrink: 0;
     }
     .support-title  { font-size: 0.87rem; font-weight: 700; color: var(--text); }
     .support-status { font-size: 0.71rem; color: var(--text-3); display: flex; align-items: center; gap: 0.3rem; margin-top: 2px; }
-    .support-online-dot {
-      width: 6px; height: 6px; border-radius: 50%; background: #4ade80;
-      animation: pulse-dot 1.8s ease-in-out infinite;
-    }
+    .support-online-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; animation: pulse-dot 1.8s ease-in-out infinite; }
     @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
     .support-close-btn {
       background: none; border: 1px solid var(--border); border-radius: 8px;
       width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
-      color: var(--text-3); cursor: pointer;
-      transition: color 0.15s, border-color 0.15s;
+      color: var(--text-3); cursor: pointer; transition: color 0.15s, border-color 0.15s;
     }
     .support-close-btn:hover { color: var(--text); border-color: var(--border-h); }
 
-    /* FAQ Chips */
-    .support-faq-chips {
-      padding: 0.8rem 0.9rem 0.7rem;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    .support-faq-label {
-      font-size: 0.67rem; text-transform: uppercase;
-      letter-spacing: 0.08em; color: var(--text-3); margin-bottom: 0.55rem;
-    }
+    .support-faq-chips { padding: 0.8rem 0.9rem 0.7rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .support-faq-label { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); margin-bottom: 0.55rem; }
     .support-chips-row { display: flex; flex-wrap: wrap; gap: 0.38rem; }
     .support-chip {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--border);
-      color: var(--text-2);
-      border-radius: 100px;
-      padding: 0.3rem 0.75rem;
-      font-size: 0.72rem;
-      cursor: pointer;
-      font-family: 'Inter', sans-serif;
-      white-space: nowrap;
-      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      color: var(--text-2); border-radius: 100px; padding: 0.3rem 0.75rem;
+      font-size: 0.72rem; cursor: pointer; font-family: 'Inter', sans-serif;
+      white-space: nowrap; transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
-    .support-chip:hover {
-      background: rgba(37,99,235,0.15);
-      border-color: rgba(37,99,235,0.45);
-      color: var(--text);
-    }
+    .support-chip:hover { background: rgba(37,99,235,0.15); border-color: rgba(37,99,235,0.45); color: var(--text); }
 
-    /* Messages */
     .support-messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      scroll-behavior: smooth;
+      flex: 1; overflow-y: auto; padding: 1rem;
+      display: flex; flex-direction: column; gap: 0.75rem; scroll-behavior: smooth;
     }
     .support-messages::-webkit-scrollbar { width: 3px; }
     .support-messages::-webkit-scrollbar-thumb { background: var(--border-h); border-radius: 4px; }
-    .support-msg        { display: flex; flex-direction: column; max-width: 88%; }
-    .support-msg-bot    { align-self: flex-start; align-items: flex-start; }
-    .support-msg-user   { align-self: flex-end;   align-items: flex-end; }
+    .support-msg      { display: flex; flex-direction: column; max-width: 88%; }
+    .support-msg-bot  { align-self: flex-start; align-items: flex-start; }
+    .support-msg-user { align-self: flex-end;   align-items: flex-end; }
     .support-bubble {
-      padding: 0.65rem 0.9rem;
-      border-radius: 14px;
-      font-size: 0.81rem;
-      line-height: 1.58;
-      color: var(--text);
+      padding: 0.65rem 0.9rem; border-radius: 14px;
+      font-size: 0.81rem; line-height: 1.58; color: var(--text);
     }
     .support-msg-bot  .support-bubble { background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
     .support-msg-user .support-bubble { background: linear-gradient(135deg, #2563EB, #1d4ed8); border-bottom-right-radius: 4px; }
-    .support-msg-time  { font-size: 0.64rem; color: var(--text-3); margin-top: 0.25rem; padding: 0 0.15rem; }
+    .support-msg-time { font-size: 0.64rem; color: var(--text-3); margin-top: 0.25rem; padding: 0 0.15rem; }
 
-    /* Typing dots */
     .support-typing { padding: 0 1rem 0.6rem; }
     .support-typing-bubble { display: inline-flex; align-items: center; gap: 4px; padding: 0.55rem 0.85rem !important; }
     .support-typing-bubble span {
-      width: 6px; height: 6px;
-      background: var(--text-3); border-radius: 50%;
+      width: 6px; height: 6px; background: var(--text-3); border-radius: 50%;
       animation: typing-bounce 1.3s ease-in-out infinite;
     }
     .support-typing-bubble span:nth-child(2) { animation-delay: 0.2s; }
     .support-typing-bubble span:nth-child(3) { animation-delay: 0.4s; }
     @keyframes typing-bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
 
-    /* Input */
     .support-input-row {
       display: flex; align-items: center; gap: 0.5rem;
-      padding: 0.7rem 0.85rem;
-      border-top: 1px solid var(--border);
-      flex-shrink: 0;
-      background: var(--bg-2);
+      padding: 0.7rem 0.85rem; border-top: 1px solid var(--border);
+      flex-shrink: 0; background: var(--bg-2);
     }
     .support-input {
-      flex: 1;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 0.55rem 0.85rem;
-      font-size: 0.81rem;
-      font-family: 'Inter', sans-serif;
-      color: var(--text);
-      outline: none;
-      transition: border-color 0.15s;
+      flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      border-radius: 10px; padding: 0.55rem 0.85rem;
+      font-size: 0.81rem; font-family: 'Inter', sans-serif; color: var(--text);
+      outline: none; transition: border-color 0.15s;
     }
     .support-input::placeholder { color: var(--text-3); }
     .support-input:focus { border-color: var(--blue-l); }
     .support-send-btn {
-      width: 36px; height: 36px;
-      background: var(--blue); border: none; border-radius: 10px;
+      width: 36px; height: 36px; background: var(--blue); border: none; border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
       color: #fff; cursor: pointer; flex-shrink: 0;
       transition: background 0.15s, transform 0.1s;
@@ -688,7 +567,6 @@
     <script>
     (function () {
       let supportOpen = false;
-      let supportHist = [];
 
       window.toggleSupport = function () {
         supportOpen = !supportOpen;
@@ -706,7 +584,6 @@
         }
       };
 
-      // Close on outside click
       document.addEventListener('click', e => {
         if (supportOpen &&
             !document.getElementById('support-panel').contains(e.target) &&
@@ -735,79 +612,51 @@
       }
 
       const SUPPORT_REPLIES = [
-        { words: ['check in', 'check-in', 'checkin', 'online check'],
+        { words: ['check in','check-in','checkin','online check'],
           reply: "Online check-in opens 48 hours before your departure and closes 1 hour before.\n\nTo check in:\n1. Go to your Dashboard\n2. Click \"Check in\" on your booking\n3. Pick your seat (rows 1–30, seats A–F)\n4. Your boarding pass is ready immediately after ✅" },
-
         { words: ['boarding pass'],
           reply: "Your boarding pass is available right after you complete online check-in.\n\nGo to your Dashboard, open the booking, and tap 'Boarding Pass'. Check-in opens 48 hrs before departure and closes 1 hr before." },
-
-        { words: ['boarding', 'gate', 'when to arrive'],
+        { words: ['boarding','gate','when to arrive'],
           reply: "Boarding starts 30 minutes before departure — please be at the gate 45 minutes early so you don't miss your flight." },
-
-        { words: ['how long', 'payment confirm', 'when.*confirm', 'confirm.*payment'],
+        { words: ['how long','payment confirm','when.*confirm','confirm.*payment'],
           reply: "After you submit your transaction hash, our team manually verifies it on the blockchain:\n\n• Bitcoin: ~30 minutes\n• Ethereum: ~3 minutes\n• Solana: Near instant\n\nYou'll get an in-app notification and email once confirmed. If still pending after 3 hours, email support@skychain.io with your booking reference and transaction hash." },
-
         { words: ['pending'],
           reply: "Payments usually confirm within a few minutes to a few hours. If yours has been pending for more than 3 hours, email support@skychain.io with your booking reference and transaction hash and our team will look into it." },
-
-        { words: ['what crypto', 'which crypto', 'crypto do you', 'accept'],
+        { words: ['what crypto','which crypto','crypto do you','accept'],
           reply: "SkyChain is crypto-only. We accept:\n\n₿ Bitcoin (BTC)\nΞ Ethereum (ETH)\n◎ Solana (SOL)\n\nNo credit cards or bank transfers. Choose your currency at checkout and paste your transaction hash to confirm." },
-
-        { words: ['bitcoin', 'btc'],
-          reply: "Yes, we accept Bitcoin (BTC)! You can also pay with Ethereum (ETH) or Solana (SOL). Choose your preferred crypto at checkout." },
-
-        { words: ['ethereum', 'eth'],
-          reply: "Yes, we accept Ethereum (ETH)! You can also pay with Bitcoin (BTC) or Solana (SOL). Choose your preferred crypto at checkout." },
-
-        { words: ['solana', 'sol'],
-          reply: "Yes, we accept Solana (SOL)! You can also pay with Bitcoin (BTC) or Ethereum (ETH). Choose your preferred crypto at checkout." },
-
+        { words: ['bitcoin','btc'], reply: "Yes, we accept Bitcoin (BTC)! You can also pay with Ethereum (ETH) or Solana (SOL). Choose your preferred crypto at checkout." },
+        { words: ['ethereum','eth'], reply: "Yes, we accept Ethereum (ETH)! You can also pay with Bitcoin (BTC) or Solana (SOL). Choose your preferred crypto at checkout." },
+        { words: ['solana','sol'], reply: "Yes, we accept Solana (SOL)! You can also pay with Bitcoin (BTC) or Ethereum (ETH). Choose your preferred crypto at checkout." },
         { words: ['cancel'],
           reply: "To cancel your booking:\n1. Go to your Dashboard\n2. Find the booking and click \"Cancel booking\"\n\nIf cancelled before check-in opens (48 hrs before departure), a refund in the original crypto may be issued within 3–5 business days. Late cancellations and no-shows are non-refundable." },
-
-        { words: ['change', 'modify', 'reschedule'],
+        { words: ['change','modify','reschedule'],
           reply: "To change your booking, email support@skychain.io with your 8-character booking reference. Changes depend on availability and must be requested before check-in opens." },
-
         { words: ['refund'],
           reply: "Refunds are possible if you cancel before check-in opens (48 hrs before departure). Email support@skychain.io with your booking reference — if approved, the refund is returned in the original crypto within 3–5 business days. Late cancellations and no-shows are non-refundable." },
-
-        { words: ['baggage', 'luggage', 'bag', 'suitcase', 'kg', 'weight'],
+        { words: ['baggage','luggage','bag','suitcase','kg','weight'],
           reply: "Baggage options:\n\n• Carry-on only: 1 bag up to 10 kg (free)\n• 1 checked bag: up to 23 kg (+$35)\n• 2 checked bags: up to 23 kg each (+$60)\n• 2 checked bags: up to 32 kg each (+$90)\n\nBaggage is selected during the extras step at booking." },
-
-        { words: ['confirmation email', 'no email', 'did not receive', 'didn\'t receive', 'not receive'],
+        { words: ['confirmation email','no email','did not receive','didn\'t receive','not receive'],
           reply: "Confirmation emails go out as soon as your payment is confirmed. Please check your spam/junk folder first — it often ends up there.\n\nAll your booking details are also visible on your Dashboard under 'My bookings'." },
-
-        { words: ['not loading', 'broken', 'bug', 'error', 'technical', 'issue', 'problem'],
+        { words: ['not loading','broken','bug','error','technical','issue','problem'],
           reply: "Sorry you're running into trouble! Try clearing your browser cache or switching to a different browser — that fixes most issues.\n\nIf it's still not working, email support@skychain.io and our team will sort it out quickly." },
-
-        { words: ['seat', 'select seat', 'choose seat'],
+        { words: ['seat','select seat','choose seat'],
           reply: "You pick your seat during online check-in, which opens 48 hours before departure. We have rows 1–30 with seats A–F available." },
-
-        { words: ['booking reference', 'reference number', 'booking number'],
+        { words: ['booking reference','reference number','booking number'],
           reply: "Your 8-character booking reference is shown on your Dashboard and on your e-ticket. You'll need it when contacting us at support@skychain.io." },
-
-        { words: ['how do i book', 'how to book', 'book a flight'],
+        { words: ['how do i book','how to book','book a flight'],
           reply: "Booking is simple:\n1. Enter your origin, destination & date on the homepage\n2. Pick a flight from the results\n3. Choose extras (seat, baggage)\n4. Fill in passenger details\n5. Pay with BTC, ETH or SOL\n6. Paste your transaction hash — confirmed! ✅" },
-
-        { words: ['human', 'real person', 'agent', 'talk to someone'],
+        { words: ['human','real person','agent','talk to someone'],
           reply: "Our support team is available via email:\n\n📧 support@skychain.io\n\nPlease include your booking reference so we can help you faster. We typically respond within 2–4 hours." },
-
-        { words: ['hello', 'hi there', 'good morning', 'good afternoon', 'good evening'],
+        { words: ['hello','hi there','good morning','good afternoon','good evening'],
           reply: "👋 Hi! I'm the SkyChain support assistant. How can I help you today? Feel free to ask about check-in, payments, baggage, or anything else." },
-
-        { words: ['thank'],
-          reply: "You're welcome! Is there anything else I can help you with? ✈️" },
-
-        { words: ['bye', 'goodbye', 'see you'],
-          reply: "Safe travels! Come back anytime if you have questions. ✈️" },
+        { words: ['thank'], reply: "You're welcome! Is there anything else I can help you with? ✈️" },
+        { words: ['bye','goodbye','see you'], reply: "Safe travels! Come back anytime if you have questions. ✈️" },
       ];
 
       function hardCodedReply(text) {
         const lower = text.toLowerCase();
         for (const rule of SUPPORT_REPLIES) {
-          if (rule.words.some(w => lower.includes(w))) {
-            return rule.reply;
-          }
+          if (rule.words.some(w => lower.includes(w))) return rule.reply;
         }
         return "I'm not sure about that one. Here are some things I can help with — tap a button above, or email support@skychain.io with your booking reference for personal assistance.";
       }
@@ -818,17 +667,200 @@
         if (!text) return;
         input.value = '';
         appendMsg(text, 'user');
-
         const typing = document.getElementById('support-typing');
         typing.style.display = 'block';
         document.getElementById('support-messages').scrollTop = 99999;
-
         setTimeout(() => {
           typing.style.display = 'none';
           appendMsg(hardCodedReply(text), 'bot');
         }, 500);
       };
     })();
+    </script>
+
+    <!-- ═══════════════════════════════════════════════════════
+         GLOBAL LANGUAGE SWITCHER — Google Translate + Auto
+         ═══════════════════════════════════════════════════════ -->
+    <script>
+    // Full world language list: [code, native name, English name, flag emoji]
+    const LANGUAGES = [
+        ["af","Afrikaans","Afrikaans","🇿🇦"],["sq","Shqip","Albanian","🇦🇱"],["am","አማርኛ","Amharic","🇪🇹"],
+        ["ar","العربية","Arabic","🇸🇦"],["hy","Հայերեն","Armenian","🇦🇲"],["az","Azərbaycanca","Azerbaijani","🇦🇿"],
+        ["eu","Euskara","Basque","🇪🇸"],["be","Беларуская","Belarusian","🇧🇾"],["bn","বাংলা","Bengali","🇧🇩"],
+        ["bs","Bosanski","Bosnian","🇧🇦"],["bg","Български","Bulgarian","🇧🇬"],["ca","Català","Catalan","🇪🇸"],
+        ["ceb","Cebuano","Cebuano","🇵🇭"],["ny","Chichewa","Chichewa","🇲🇼"],["zh-CN","中文(简体)","Chinese Simplified","🇨🇳"],
+        ["zh-TW","中文(繁體)","Chinese Traditional","🇹🇼"],["co","Corsu","Corsican","🇫🇷"],["hr","Hrvatski","Croatian","🇭🇷"],
+        ["cs","Čeština","Czech","🇨🇿"],["da","Dansk","Danish","🇩🇰"],["nl","Nederlands","Dutch","🇳🇱"],
+        ["en","English","English","🇬🇧"],["eo","Esperanto","Esperanto","🌍"],["et","Eesti","Estonian","🇪🇪"],
+        ["tl","Filipino","Filipino","🇵🇭"],["fi","Suomi","Finnish","🇫🇮"],["fr","Français","French","🇫🇷"],
+        ["fy","Frysk","Frisian","🇳🇱"],["gl","Galego","Galician","🇪🇸"],["ka","ქართული","Georgian","🇬🇪"],
+        ["de","Deutsch","German","🇩🇪"],["el","Ελληνικά","Greek","🇬🇷"],["gu","ગુજરાતી","Gujarati","🇮🇳"],
+        ["ht","Kreyòl ayisyen","Haitian Creole","🇭🇹"],["ha","Hausa","Hausa","🇳🇬"],["haw","ʻŌlelo Hawaiʻi","Hawaiian","🇺🇸"],
+        ["iw","עברית","Hebrew","🇮🇱"],["hi","हिन्दी","Hindi","🇮🇳"],["hmn","Hmoob","Hmong","🌏"],
+        ["hu","Magyar","Hungarian","🇭🇺"],["is","Íslenska","Icelandic","🇮🇸"],["ig","Igbo","Igbo","🇳🇬"],
+        ["id","Bahasa Indonesia","Indonesian","🇮🇩"],["ga","Gaeilge","Irish","🇮🇪"],["it","Italiano","Italian","🇮🇹"],
+        ["ja","日本語","Japanese","🇯🇵"],["jw","Basa Jawa","Javanese","🇮🇩"],["kn","ಕನ್ನಡ","Kannada","🇮🇳"],
+        ["kk","Қазақ","Kazakh","🇰🇿"],["km","ខ្មែរ","Khmer","🇰🇭"],["rw","Kinyarwanda","Kinyarwanda","🇷🇼"],
+        ["ko","한국어","Korean","🇰🇷"],["ku","Kurdî","Kurdish","🌍"],["ky","Кыргызча","Kyrgyz","🇰🇬"],
+        ["lo","ລາວ","Lao","🇱🇦"],["la","Latina","Latin","🇻🇦"],["lv","Latviešu","Latvian","🇱🇻"],
+        ["lt","Lietuvių","Lithuanian","🇱🇹"],["lb","Lëtzebuergesch","Luxembourgish","🇱🇺"],["mk","Македонски","Macedonian","🇲🇰"],
+        ["mg","Malagasy","Malagasy","🇲🇬"],["ms","Bahasa Melayu","Malay","🇲🇾"],["ml","മലയാളം","Malayalam","🇮🇳"],
+        ["mt","Malti","Maltese","🇲🇹"],["mi","Te Reo Māori","Maori","🇳🇿"],["mr","मराठी","Marathi","🇮🇳"],
+        ["mn","Монгол","Mongolian","🇲🇳"],["my","မြန်မာဘာသာ","Myanmar (Burmese)","🇲🇲"],["ne","नेपाली","Nepali","🇳🇵"],
+        ["no","Norsk","Norwegian","🇳🇴"],["or","ଓଡ଼ିଆ","Odia (Oriya)","🇮🇳"],["ps","پښتو","Pashto","🇦🇫"],
+        ["fa","فارسی","Persian","🇮🇷"],["pl","Polski","Polish","🇵🇱"],["pt","Português","Portuguese","🇧🇷"],
+        ["pa","ਪੰਜਾਬੀ","Punjabi","🇮🇳"],["ro","Română","Romanian","🇷🇴"],["ru","Русский","Russian","🇷🇺"],
+        ["sm","Gagana Samoa","Samoan","🇼🇸"],["gd","Gàidhlig","Scots Gaelic","🏴󠁧󠁢󠁳󠁣󠁴󠁿"],["sr","Српски","Serbian","🇷🇸"],
+        ["st","Sesotho","Sesotho","🇱🇸"],["sn","Shona","Shona","🇿🇼"],["sd","سنڌي","Sindhi","🇵🇰"],
+        ["si","සිංහල","Sinhala","🇱🇰"],["sk","Slovenčina","Slovak","🇸🇰"],["sl","Slovenščina","Slovenian","🇸🇮"],
+        ["so","Soomaali","Somali","🇸🇴"],["es","Español","Spanish","🇪🇸"],["su","Basa Sunda","Sundanese","🇮🇩"],
+        ["sw","Kiswahili","Swahili","🇰🇪"],["sv","Svenska","Swedish","🇸🇪"],["tg","Тоҷикӣ","Tajik","🇹🇯"],
+        ["ta","தமிழ்","Tamil","🇮🇳"],["tt","Татарча","Tatar","🇷🇺"],["te","తెలుగు","Telugu","🇮🇳"],
+        ["th","ภาษาไทย","Thai","🇹🇭"],["tr","Türkçe","Turkish","🇹🇷"],["tk","Türkmençe","Turkmen","🇹🇲"],
+        ["uk","Українська","Ukrainian","🇺🇦"],["ur","اردو","Urdu","🇵🇰"],["ug","ئۇيغۇرچە","Uyghur","🇨🇳"],
+        ["uz","Oʻzbekcha","Uzbek","🇺🇿"],["vi","Tiếng Việt","Vietnamese","🇻🇳"],["cy","Cymraeg","Welsh","🏴󠁧󠁢󠁷󠁬󠁳󠁿"],
+        ["xh","isiXhosa","Xhosa","🇿🇦"],["yi","ייִדיש","Yiddish","🌍"],["yo","Yorùbá","Yoruba","🇳🇬"],
+        ["zu","isiZulu","Zulu","🇿🇦"]
+    ];
+
+    const COUNTRY_LANG = {
+        "AF":"ps","AL":"sq","DZ":"ar","AO":"pt","AR":"es","AM":"hy","AU":"en","AT":"de",
+        "AZ":"az","BH":"ar","BD":"bn","BY":"be","BE":"nl","BZ":"es","BJ":"fr","BT":"ne",
+        "BO":"es","BA":"bs","BW":"en","BR":"pt","BN":"ms","BG":"bg","BF":"fr","BI":"fr",
+        "KH":"km","CM":"fr","CA":"en","CF":"fr","TD":"fr","CL":"es","CN":"zh-CN","CO":"es",
+        "KM":"ar","CG":"fr","CD":"fr","CR":"es","HR":"hr","CU":"es","CY":"el","CZ":"cs",
+        "DK":"da","DJ":"fr","DO":"es","EC":"es","EG":"ar","SV":"es","GQ":"es","ER":"ti",
+        "EE":"et","ET":"am","FJ":"en","FI":"fi","FR":"fr","GA":"fr","GM":"en","GE":"ka",
+        "DE":"de","GH":"en","GR":"el","GT":"es","GN":"fr","GW":"pt","GY":"en","HT":"ht",
+        "HN":"es","HK":"zh-TW","HU":"hu","IS":"is","IN":"hi","ID":"id","IR":"fa","IQ":"ar",
+        "IE":"en","IL":"iw","IT":"it","JM":"en","JP":"ja","JO":"ar","KZ":"kk","KE":"sw",
+        "KP":"ko","KR":"ko","KW":"ar","KG":"ky","LA":"lo","LV":"lv","LB":"ar","LS":"st",
+        "LR":"en","LY":"ar","LT":"lt","LU":"lb","MO":"zh-TW","MK":"mk","MG":"mg","MW":"ny",
+        "MY":"ms","MV":"ar","ML":"fr","MT":"mt","MR":"ar","MU":"fr","MX":"es","FM":"en",
+        "MD":"ro","MN":"mn","ME":"sr","MA":"ar","MZ":"pt","MM":"my","NA":"en","NP":"ne",
+        "NL":"nl","NZ":"en","NI":"es","NE":"fr","NG":"en","NO":"no","OM":"ar","PK":"ur",
+        "PW":"en","PA":"es","PG":"en","PY":"es","PE":"es","PH":"tl","PL":"pl","PT":"pt",
+        "QA":"ar","RO":"ro","RU":"ru","RW":"rw","SA":"ar","SN":"fr","RS":"sr","SL":"en",
+        "SG":"ms","SK":"sk","SI":"sl","SO":"so","ZA":"af","SS":"en","ES":"es","LK":"si",
+        "SD":"ar","SR":"nl","SZ":"en","SE":"sv","CH":"de","SY":"ar","TW":"zh-TW","TJ":"tg",
+        "TZ":"sw","TH":"th","TL":"pt","TG":"fr","TT":"en","TN":"ar","TR":"tr","TM":"tk",
+        "UG":"sw","UA":"uk","AE":"ar","GB":"en","US":"en","UY":"es","UZ":"uz","VE":"es",
+        "VN":"vi","YE":"ar","ZM":"en","ZW":"sn"
+    };
+
+    const LS_KEY_LANG = "sc_lang_code";
+    const LS_KEY_AUTO = "sc_lang_auto_done";
+
+    function getLangInfo(code) {
+        return LANGUAGES.find(l => l[0] === code) || ["en","English","English","🌐"];
+    }
+
+    function applyLanguage(code) {
+        localStorage.setItem(LS_KEY_LANG, code);
+        const info = getLangInfo(code);
+        document.getElementById("langCurrentLabel").textContent = info[1];
+        const expires = new Date();
+        expires.setFullYear(expires.getFullYear() + 1);
+        document.cookie = `googtrans=/en/${code}; expires=${expires.toUTCString()}; path=/`;
+        document.cookie = `googtrans=/en/${code}; expires=${expires.toUTCString()}; path=/; domain=${location.hostname}`;
+        document.documentElement.setAttribute("lang", code);
+        if (window.google && window.google.translate) {
+            const sel = document.querySelector(".goog-te-combo");
+            if (sel) { sel.value = code; sel.dispatchEvent(new Event("change")); }
+        }
+    }
+
+    function autoDetectLanguage() {
+        if (localStorage.getItem(LS_KEY_AUTO)) return;
+        const saved = localStorage.getItem(LS_KEY_LANG);
+        if (saved && saved !== "en") { applyLanguage(saved); return; }
+        fetch("https://ipapi.co/json/", { cache: "force-cache" })
+            .then(r => r.json())
+            .then(d => {
+                const country  = (d.country_code || "").toUpperCase();
+                const langCode = COUNTRY_LANG[country] || "en";
+                localStorage.setItem(LS_KEY_AUTO, "1");
+                if (langCode !== "en") applyLanguage(langCode);
+            })
+            .catch(() => {
+                const nav = (navigator.language || "en").split("-")[0];
+                const match = LANGUAGES.find(l => l[0] === nav);
+                if (match && match[0] !== "en") applyLanguage(match[0]);
+                localStorage.setItem(LS_KEY_AUTO, "1");
+            });
+    }
+
+    function buildLangList(filter) {
+        const list    = document.getElementById("langList");
+        list.innerHTML = "";
+        const q       = (filter || "").toLowerCase();
+        const current = localStorage.getItem(LS_KEY_LANG) || "en";
+        const filtered = q
+            ? LANGUAGES.filter(l => l[1].toLowerCase().includes(q) || l[2].toLowerCase().includes(q) || l[0].toLowerCase().includes(q))
+            : LANGUAGES;
+        filtered.forEach(([code, native, english, flag]) => {
+            const item = document.createElement("div");
+            item.className = "lang-item" + (code === current ? " lang-item--active" : "");
+            item.setAttribute("role","option");
+            item.setAttribute("aria-selected", code === current);
+            item.dataset.code = code;
+            item.innerHTML = `<span class="lang-flag">${flag}</span><span class="lang-name">${native}</span><span class="lang-en">${english}</span>`;
+            item.addEventListener("click", () => { applyLanguage(code); closeLangDropdown(); location.reload(); });
+            list.appendChild(item);
+        });
+        if (!filtered.length) list.innerHTML = `<div class="lang-empty">No languages found</div>`;
+    }
+
+    function openLangDropdown() {
+        document.getElementById("langBtn").setAttribute("aria-expanded","true");
+        document.getElementById("langDropdown").classList.add("open");
+        buildLangList("");
+        setTimeout(() => document.getElementById("langSearch").focus(), 50);
+    }
+
+    function closeLangDropdown() {
+        document.getElementById("langBtn").setAttribute("aria-expanded","false");
+        document.getElementById("langDropdown").classList.remove("open");
+    }
+
+    document.getElementById("langBtn").addEventListener("click", e => {
+        e.stopPropagation();
+        document.getElementById("langDropdown").classList.contains("open") ? closeLangDropdown() : openLangDropdown();
+    });
+
+    document.getElementById("langSearch").addEventListener("input", e => buildLangList(e.target.value));
+
+    document.addEventListener("click", e => {
+        if (!document.getElementById("langSwitcher").contains(e.target)) closeLangDropdown();
+    });
+
+    // Restore saved label
+    (function() {
+        const saved = localStorage.getItem(LS_KEY_LANG);
+        if (saved) document.getElementById("langCurrentLabel").textContent = getLangInfo(saved)[1];
+    })();
+
+    // Inject Google Translate (hidden, we drive via cookie)
+    function injectGoogleTranslate() {
+        const el = document.createElement("div");
+        el.id = "google_translate_element";
+        el.style.cssText = "position:absolute;top:-9999px;left:-9999px;visibility:hidden;";
+        document.body.appendChild(el);
+        window.googleTranslateElementInit = function() {
+            new google.translate.TranslateElement({ pageLanguage: "en", autoDisplay: false }, "google_translate_element");
+            const saved = localStorage.getItem(LS_KEY_LANG);
+            if (saved && saved !== "en") setTimeout(() => applyLanguage(saved), 800);
+        };
+        const s = document.createElement("script");
+        s.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+        s.onerror = () => console.warn("Google Translate unavailable");
+        document.head.appendChild(s);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        autoDetectLanguage();
+        injectGoogleTranslate();
+    });
     </script>
 
 </body>
