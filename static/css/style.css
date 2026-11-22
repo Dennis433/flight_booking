@@ -3188,3 +3188,151 @@ body { top: 0 !important; }
 .goog-te-banner-frame, #goog-gt-tt, .goog-te-balloon-frame { display: none !important; }
 .skiptranslate { display: none !important; }
 iframe.skiptranslate { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════
+   MOBILE NAV FIX + LANGUAGE SWITCHER MOBILE OVERHAUL
+   ═══════════════════════════════════════════════════════ */
+
+/* Hamburger button — hidden on desktop */
+.nav-hamburger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    width: 38px;
+    height: 38px;
+    background: none;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    z-index: 1001;
+}
+.nav-hamburger span {
+    display: block;
+    width: 18px;
+    height: 2px;
+    background: var(--text);
+    border-radius: 2px;
+    transition: transform 0.25s, opacity 0.2s, width 0.2s;
+    transform-origin: center;
+}
+.nav-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-hamburger.open span:nth-child(2) { opacity: 0; width: 0; }
+.nav-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* ── Mobile breakpoint ── */
+@media (max-width: 768px) {
+
+    /* Show hamburger */
+    .nav-hamburger { display: flex; }
+
+    /* Nav-inner: logo | lang-btn | hamburger */
+    .nav-inner {
+        flex-wrap: nowrap;
+        gap: 0.5rem;
+    }
+
+    /* Move lang switcher out of .nav-links so it stays in the top bar */
+    .nav-links {
+        position: fixed;
+        top: 57px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(8,11,20,0.97);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0;
+        padding: 1rem 0 2rem;
+        overflow-y: auto;
+        z-index: 999;
+        transform: translateX(100%);
+        transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+        border-top: 1px solid rgba(255,255,255,0.07);
+    }
+    .nav-links.open {
+        transform: translateX(0);
+    }
+
+    .nav-links a,
+    .nav-links .btn-primary {
+        width: 100%;
+        padding: 0.95rem 1.5rem;
+        font-size: 1rem;
+        border-radius: 0;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        display: block;
+    }
+    .nav-links .btn-primary {
+        margin: 0;
+        background: none !important;
+        color: var(--blue-l) !important;
+    }
+
+    /* Notification bell inside mobile menu */
+    .notif-wrap {
+        width: 100%;
+        padding: 0.95rem 1.5rem;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .notif-bell {
+        width: auto;
+    }
+
+    /* Lang switcher — stays in top bar, NOT inside .nav-links */
+    .lang-switcher {
+        margin-left: auto; /* push to right of logo */
+    }
+
+    /* Lang button on mobile: globe only, no label */
+    .lang-btn {
+        padding: 0.42rem 0.65rem;
+        gap: 0.25rem;
+        font-size: 0.8rem;
+        border-radius: 20px;
+    }
+    .lang-current-label { display: none; }
+    .lang-caret { display: none; }
+    .lang-globe { font-size: 1.1rem; }
+
+    /* Dropdown: full-width, slides down from top bar */
+    .lang-dropdown {
+        position: fixed;
+        top: 57px;
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-width: 100%;
+        max-height: calc(100vh - 57px);
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+        z-index: 10000;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+    .lang-dropdown.open { display: flex; }
+
+    /* Bigger tap targets in list */
+    .lang-item {
+        padding: 0.75rem 1.1rem;
+    }
+    .lang-flag { font-size: 1.3rem; }
+    .lang-name { font-size: 0.95rem; }
+    .lang-en   { font-size: 0.78rem; }
+
+    /* Search box: larger for mobile */
+    .lang-search {
+        font-size: 0.95rem;
+        padding: 0.6rem 0.9rem;
+    }
+    .lang-search-wrap { padding: 0.75rem; }
+
+    /* Lang list: bigger scroll area */
+    .lang-list { max-height: calc(100vh - 160px); }
+}
